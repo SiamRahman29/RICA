@@ -9,7 +9,7 @@ from typing import Dict, Any
 import uvicorn
 
 # Import routers
-from routes.manager.route import router as manager_router
+from app.routes.manager.route import router as manager_router
 
 # Create FastAPI instance
 app = FastAPI(
