@@ -8,6 +8,9 @@ from pydantic import BaseModel
 from typing import Dict, Any
 import uvicorn
 
+# Import routers
+from routes.manager.route import router as manager_router
+
 # Create FastAPI instance
 app = FastAPI(
     title="RICA API",
@@ -25,6 +28,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(manager_router)
 
 # Pydantic models
 class HealthResponse(BaseModel):
@@ -77,6 +83,7 @@ async def api_status():
             "/",
             "/health",
             "/chat",
+            "/manager/ask",
             "/docs",
             "/redoc"
         ]
