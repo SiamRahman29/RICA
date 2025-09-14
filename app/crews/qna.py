@@ -1,8 +1,14 @@
-from crewai import Agent, Task, Crew, LLM
-from app.crews.helpers import get_llm
+import os
+from dotenv import load_dotenv
 
-# Initialize Groq LLM
-llm = LLM(model="groq/llama-3.3-70b-versatile")
+from crewai import Agent, Task, Crew, LLM
+
+load_dotenv()
+
+LLM_MODEL = os.getenv("LLM_MODEL", "groq/openai/gpt-oss-20b")
+
+# Initialize an LLM
+llm = LLM(model=LLM_MODEL)
 
 qna_agent = Agent(
     role="You are a helpful assistant named RICA",
