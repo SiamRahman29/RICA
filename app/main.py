@@ -10,6 +10,7 @@ import uvicorn
 
 # Import routers
 from app.routes.manager.route import router as manager_router
+from app.routes.telegram.route import router as telegram_router
 
 # Create FastAPI instance
 app = FastAPI(
@@ -31,6 +32,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(manager_router)
+app.include_router(telegram_router)
 
 # Pydantic models
 class HealthResponse(BaseModel):
