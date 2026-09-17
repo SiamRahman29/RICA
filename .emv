@@ -12,7 +12,6 @@ GROQ_API_KEY=
 GEMINI_API_KEY=
 
 # Internal service keys (generate with: openssl rand -hex 32)
-# LITELLM_MASTER_KEY must start with "sk-", e.g. sk-<hex>
 LITELLM_MASTER_KEY=
 RICA_INTERNAL_KEY=
 SEARXNG_SECRET=

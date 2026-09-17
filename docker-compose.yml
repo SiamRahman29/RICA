@@ -9,11 +9,34 @@ services:
       --models-dir /models
       --host 0.0.0.0
       --port 8080
-      --ctx-size 4096
+      --ctx-size 8192
       --threads 4
       --reasoning off
     ports:
       - "127.0.0.1:8081:8080"
+    networks:
+      - ai_network
+
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.101.0
+    container_name: litellm
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - llamacpp
     networks:
       - ai_network
 
@@ -26,11 +49,15 @@ services:
     volumes:
       - openwebui_data:/app/backend/data
     environment:
-      - OPENAI_API_BASE_URL=http://llamacpp:8080/v1
-      - OPENAI_API_KEY=sk-local
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
       - ENABLE_SIGNUP=false
+      # Background tasks (titles, tags) use the cheap Groq model, not RICA
+      - TASK_MODEL_EXTERNAL=groq-fast
+      # Autocomplete would call a model while typing and burn free-tier quota
+      - ENABLE_AUTOCOMPLETE_GENERATION=false
     depends_on:
-      - llamacpp
+      - litellm
     networks:
       - ai_network
 

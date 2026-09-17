@@ -105,21 +105,21 @@ Estimated RAM: ~5–6 GB total incl. Open WebUI and the loaded 0.8B local model.
 
 ### 5.1 LiteLLM deployments (aliases)
 
-Model IDs change often — **verify availability on Groq/Gemini consoles at build time**.
+Model IDs change often. Verified 2026-09-17 with test calls: Groq no longer offers the Llama 3.x models, and Gemini 2.5 is closed to new users. Groq free tier = 1,000 requests/day and 8,000 tokens/min per model. The live config is `litellm/config.yaml`.
 
 | Alias | Provider model (initial pick) | Role | Input budget (tokens) | Max output |
 |---|---|---|---|---|
-| `groq-fast` | `groq/llama-3.1-8b-instant` | planner (understand), URL selection | 3,000 | 400 |
-| `groq-smart` | `groq/llama-3.3-70b-versatile` or `groq/openai/gpt-oss-120b` | main answers (short context) | 6,000 | 1,500 |
-| `gemini-flash` | `gemini/gemini-2.5-flash` (or current Flash) | long-context answers, whole docs, web pages | 60,000 | 2,048 |
-| `gemini-lite` | `gemini/gemini-2.5-flash-lite` (or current Flash-Lite) | planner fallback, doc summaries, listwise rerank (optional) | 30,000 | 1,024 |
+| `groq-fast` | `groq/openai/gpt-oss-20b` | planner (understand), URL selection | 3,000 | 400 |
+| `groq-smart` | `groq/openai/gpt-oss-120b` | main answers (short context) | 6,000 | 1,500 |
+| `gemini-flash` | `gemini/gemini-3.6-flash` | long-context answers, whole docs, web pages | 60,000 | 2,048 |
+| `gemini-lite` | `gemini/gemini-3.5-flash-lite` | planner fallback, doc summaries, listwise rerank (optional) | 30,000 | 1,024 |
 | `local` | `openai/qwen3.5-0.8b-q4_k_m` via `http://llamacpp:8080/v1` | last resort (all roles) | 3,000 | 768 |
 | `chat-auto` | Groq smart with LiteLLM fallbacks → gemini-flash → local | plain (non-RICA) chat in Open WebUI | — | — |
 | `rica` | `openai/rica` via `http://rica:8000/v1` | **the agent** | — | — |
 
 Budgets are enforced by the agent's context builder (token counts via `tiktoken` with a ~10% safety margin).
 
-### 5.2 `litellm/config.yaml` (sketch — verify keys against LiteLLM docs)
+### 5.2 `litellm/config.yaml` (original sketch; see the file for the live config)
 
 ```yaml
 model_list:
@@ -579,9 +579,9 @@ Each milestone ends with its acceptance checks passing.
 **Accept:** server can `git clone` the knowledge repo with the deploy key. ✅ 2026-09-17 (clone works; push with the key is denied).
 
 ### M1 — Model gateway
-- [ ] `litellm` service + `config.yaml` (§5.2).
-- [ ] Point Open WebUI to LiteLLM; configure task model (§9).
-- [ ] Update `llamacpp` (ctx 8192).
+- [ ] `litellm` service + `config.yaml` (§5.2). *Written, not yet started or tested (image pinned to `v1.101.0`).*
+- [ ] Point Open WebUI to LiteLLM; configure task model (§9). *In compose, not yet applied.*
+- [ ] Update `llamacpp` (ctx 8192). *In compose, not yet applied.*
 
 **Accept:** every alias answers from Open WebUI; with an invalid Groq key, `chat-auto` answers via Gemini; with no internet, `chat-auto` answers via `local`.
 

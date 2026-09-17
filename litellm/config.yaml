@@ -1,0 +1,63 @@
+# LiteLLM proxy: the single model endpoint for RICA and Open WebUI (RICA_PLAN.md §5).
+# Model IDs and free-tier limits were checked against the Groq/Gemini APIs on 2026-09-17.
+# Groq free tier: 1,000 requests/day and 8,000 tokens/min per model.
+
+model_list:
+  # Planner, URL selection
+  - model_name: groq-fast
+    litellm_params:
+      model: groq/openai/gpt-oss-20b
+      api_key: os.environ/GROQ_API_KEY
+      rpm: 30
+      tpm: 8000
+
+  # Main answers (short context)
+  - model_name: groq-smart
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      rpm: 30
+      tpm: 8000
+
+  # Long-context answers, whole docs, web pages
+  - model_name: gemini-flash
+    litellm_params:
+      model: gemini/gemini-3.6-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  # Planner fallback, doc summaries
+  - model_name: gemini-lite
+    litellm_params:
+      model: gemini/gemini-3.5-flash-lite
+      api_key: os.environ/GEMINI_API_KEY
+
+  # Last resort: local Qwen on llama.cpp (slow on this CPU)
+  - model_name: local
+    litellm_params:
+      model: openai/qwen3.5-0.8b-q4_k_m
+      api_base: http://llamacpp:8080/v1
+      api_key: sk-local
+      timeout: 600
+
+  # Plain (non-RICA) chat in Open WebUI; falls back via litellm_settings.fallbacks
+  - model_name: chat-auto
+    litellm_params:
+      model: groq/openai/gpt-oss-120b
+      api_key: os.environ/GROQ_API_KEY
+      rpm: 30
+      tpm: 8000
+
+router_settings:
+  # Fail fast: the agent's model ladders (and chat-auto's fallbacks) handle recovery.
+  num_retries: 0
+  allowed_fails: 1
+  cooldown_time: 60
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 120
+  fallbacks:
+    - chat-auto: [gemini-flash, local]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
