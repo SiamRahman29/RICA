@@ -572,10 +572,11 @@ Each milestone ends with its acceptance checks passing.
 ### M0 — Preparation
 - [x] `git init` the ai-infra repo and push to `SiamRahman29/RICA` (ignores `llama.cpp/`, `.env`, `secrets/`, `models/`).
 - [x] Lock down Open WebUI (`ENABLE_SIGNUP=false`), confirm only it is exposed.
-- [ ] Get Groq + Gemini API keys; add to `.env`.
-- [ ] Create private `rica-knowledge` repo from §7.1 layout; write `_rica/profile.md`; add read-only deploy key.
+- [x] Get Groq + Gemini API keys; add to `.env`.
+- [x] Create private `rica-knowledge` repo from §7.1 layout; add read-only deploy key.
+- [ ] Write `_rica/profile.md` (owner).
 
-**Accept:** server can `git clone` the knowledge repo with the deploy key.
+**Accept:** server can `git clone` the knowledge repo with the deploy key. ✅ 2026-09-17 (clone works; push with the key is denied).
 
 ### M1 — Model gateway
 - [ ] `litellm` service + `config.yaml` (§5.2).
