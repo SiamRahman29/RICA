@@ -58,6 +58,7 @@ Calendar, long-term memory writes, interactive browsing (clicking/forms), PDFs/o
 | D11 | Assistant name **RICA**; LiteLLM alias `rica`; timezone **Asia/Dhaka** | Owner decision |
 | D12 | Agent is **stateless**; Open WebUI owns chat history | No checkpoint DB needed in Phase 1 |
 | D13 | Identity lives in **infra repo**; owner info lives in **knowledge repo** | Infra repo can go public without leaking personal data |
+| D14 | Local fallback = existing **Qwen3.5-0.8B**; no larger models, no benchmarking | Owner decision (2026-09-17); local is a rare last resort |
 
 Rejected alternatives: Vane/Perplexica (own LLM pipeline, loses control of citations/budgets/notice), RAGFlow/Onyx/AnythingLLM (replace rather than plug in; heavy), LlamaIndex (second framework), Langfuse (too heavy for this host), Google Drive/rclone sync (replaced by Git).
 
@@ -96,7 +97,7 @@ Rejected alternatives: Vane/Perplexica (own LLM pipeline, loses control of citat
 | `qdrant` | `qdrant/qdrant` (pin tag) | **new** | internal only |
 | `searxng` | `searxng/searxng` (pin tag) | **new** | internal only |
 
-Estimated RAM: ~5–6 GB total incl. Open WebUI and a loaded 2B local model.
+Estimated RAM: ~5–6 GB total incl. Open WebUI and the loaded 0.8B local model.
 
 ---
 
@@ -112,7 +113,7 @@ Model IDs change often — **verify availability on Groq/Gemini consoles at buil
 | `groq-smart` | `groq/llama-3.3-70b-versatile` or `groq/openai/gpt-oss-120b` | main answers (short context) | 6,000 | 1,500 |
 | `gemini-flash` | `gemini/gemini-2.5-flash` (or current Flash) | long-context answers, whole docs, web pages | 60,000 | 2,048 |
 | `gemini-lite` | `gemini/gemini-2.5-flash-lite` (or current Flash-Lite) | planner fallback, doc summaries, listwise rerank (optional) | 30,000 | 1,024 |
-| `local` | `openai/qwen3.5-2b-q4_k_m` via `http://llamacpp:8080/v1` | last resort (all roles) | 3,000 | 768 |
+| `local` | `openai/qwen3.5-0.8b-q4_k_m` via `http://llamacpp:8080/v1` | last resort (all roles) | 3,000 | 768 |
 | `chat-auto` | Groq smart with LiteLLM fallbacks → gemini-flash → local | plain (non-RICA) chat in Open WebUI | — | — |
 | `rica` | `openai/rica` via `http://rica:8000/v1` | **the agent** | — | — |
 
@@ -146,7 +147,7 @@ model_list:
       rpm: 15
   - model_name: local
     litellm_params:
-      model: openai/qwen3.5-2b-q4_k_m
+      model: openai/qwen3.5-0.8b-q4_k_m
       api_base: http://llamacpp:8080/v1
       api_key: sk-local
       timeout: 600
@@ -196,8 +197,8 @@ Rules:
 5. **Recursion guard:** the agent's allowed alias set excludes `rica` and `chat-auto` (asserted at startup).
 
 ### 5.4 llama.cpp changes
-- Add **Qwen3.5-2B Q4_K_M** to `/home/siam/models` (benchmark against 0.8B and 4B first — M0).
-- `--ctx-size 8192`; benchmark `--threads 2` vs `4` (2 physical cores).
+- Use the existing **Qwen3.5-0.8B Q4_K_M** (`/home/siam/models`); no larger models and no benchmarking (owner decision, 2026-09-17).
+- `--ctx-size 8192`; keep `--threads 4`.
 - Router mode loads models on demand → send a warm-up request on `rica` startup (or configure preload) to avoid cold-start on first fallback.
 
 ---
@@ -570,17 +571,16 @@ Each milestone ends with its acceptance checks passing.
 
 ### M0 — Preparation
 - [x] `git init` the ai-infra repo and push to `SiamRahman29/RICA` (ignores `llama.cpp/`, `.env`, `secrets/`, `models/`).
-- [ ] Lock down Open WebUI (`ENABLE_SIGNUP=false`), confirm only it is exposed.
+- [x] Lock down Open WebUI (`ENABLE_SIGNUP=false`), confirm only it is exposed.
 - [ ] Get Groq + Gemini API keys; add to `.env`.
-- [ ] `llama-bench` Qwen3.5 0.8B / 2B / 4B (Q4_K_M), threads 2 vs 4; record prompt-processing and generation tok/s here.
 - [ ] Create private `rica-knowledge` repo from §7.1 layout; write `_rica/profile.md`; add read-only deploy key.
 
-**Accept:** benchmark numbers recorded; server can `git clone` the knowledge repo with the deploy key.
+**Accept:** server can `git clone` the knowledge repo with the deploy key.
 
 ### M1 — Model gateway
 - [ ] `litellm` service + `config.yaml` (§5.2).
 - [ ] Point Open WebUI to LiteLLM; configure task model (§9).
-- [ ] Update `llamacpp` (2B model, ctx 8192, threads).
+- [ ] Update `llamacpp` (ctx 8192).
 
 **Accept:** every alias answers from Open WebUI; with an invalid Groq key, `chat-auto` answers via Gemini; with no internet, `chat-auto` answers via `local`.
 

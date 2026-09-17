@@ -28,6 +28,7 @@ services:
     environment:
       - OPENAI_API_BASE_URL=http://llamacpp:8080/v1
       - OPENAI_API_KEY=sk-local
+      - ENABLE_SIGNUP=false
     depends_on:
       - llamacpp
     networks:
