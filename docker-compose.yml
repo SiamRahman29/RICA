@@ -1,0 +1,55 @@
+services:
+  llamacpp:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: llamacpp
+    restart: unless-stopped
+    volumes:
+      - /home/siam/models:/models:ro
+    command: >
+      --models-dir /models
+      --host 0.0.0.0
+      --port 8080
+      --ctx-size 4096
+      --threads 4
+      --reasoning off
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - ai_network
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    restart: unless-stopped
+    ports:
+      - "3002:8080"
+    volumes:
+      - openwebui_data:/app/backend/data
+    environment:
+      - OPENAI_API_BASE_URL=http://llamacpp:8080/v1
+      - OPENAI_API_KEY=sk-local
+    depends_on:
+      - llamacpp
+    networks:
+      - ai_network
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    restart: unless-stopped
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command:
+      - "http"
+      - "--url=${NGROK_DOMAIN}"
+      - "openwebui:8080"
+    depends_on:
+      - openwebui
+    networks:
+      - ai_network
+
+volumes:
+  openwebui_data:
+
+networks:
+  ai_network:

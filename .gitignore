@@ -1,0 +1,26 @@
+# Secrets
+.env
+secrets/
+
+# Upstream llama.cpp source clone (the stack uses the prebuilt image)
+llama.cpp/
+
+# Model weights
+models/
+*.gguf
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
