@@ -8,15 +8,36 @@ from rica.api import create_app
 from rica.graph import LOCAL_NOTICE, UNAVAILABLE
 from rica.nodes.understand import heuristic_plan
 from rica.settings import Settings
+from rica.retrieval.search import Chunk
 from tests.fakes import Scripted, layer
 
 KEY = "test-key"
 PLAN = '{"routes": ["chat"], "standalone_query": "hi"}'
 
 
-def client(models, tmp_path) -> TestClient:
+class FakeSearch:
+    def __init__(self, chunks):
+        self.chunks = chunks
+
+    def facts(self, q, about_me):
+        return self.chunks
+
+    whole_doc = lambda self, hint, q, about_me: self.chunks  # noqa: E731
+    find_docs = facts
+
+    def quick_titles(self, q):
+        return [f"{c.title} ({c.source})" for c in self.chunks]
+
+
+CAR = Chunk(doc_id="c", source="notes/car.md", title="Car", heading_path="Car", chunk_index=0,
+            text="Next service is due in December 2026.", updated_at="2026-08-03T10:00:00+06:00", score=5.0)
+DOCS_PLAN = '{"routes": ["docs"], "standalone_query": "When is my car service due?"}'
+
+
+def client(models, tmp_path, chunks=()) -> TestClient:
     s = Settings(rica_internal_key=KEY, knowledge_dir=tmp_path, owner_name="Ana", warmup_local=False)
-    return TestClient(create_app(s, models))
+    search = FakeSearch(list(chunks))
+    return TestClient(create_app(s, models, lambda: search))
 
 
 def ask(c, stream=False, text="Who are you?"):
@@ -82,3 +103,36 @@ def test_heuristic_plan(monkeypatch, text, route):
 
 def test_heuristic_plan_only_uses_enabled_routes():
     assert heuristic_plan("read https://example.com").routes == ["chat"]
+
+
+def test_docs_route_packs_evidence_and_appends_sources(tmp_path):
+    smart = Scripted(reply="It is due in December 2026 [1].")
+    with client(layer(groq_fast=Scripted(reply=DOCS_PLAN), groq_smart=smart), tmp_path, [CAR]) as c:
+        text = ask(c, text="When is my car service due?").json()["choices"][0]["message"]["content"]
+    assert text.startswith("It is due in December 2026 [1].")
+    assert "**Sources**\n- [1] Car: `notes/car.md › Car` (updated 2026-08-03)" in text
+    system = smart.calls[-1][0].text
+    assert '<doc id=1 src="notes/car.md › Car" updated="2026-08-03">' in system
+
+
+def test_docs_not_found_tells_model(tmp_path):
+    smart = Scripted(reply="I couldn't find that in your notes.")
+    with client(layer(groq_fast=Scripted(reply=DOCS_PLAN), groq_smart=smart), tmp_path, []) as c:
+        text = ask(c).json()["choices"][0]["message"]["content"]
+    assert "Sources" not in text
+    assert 'status="not found"' in smart.calls[-1][0].text
+
+
+def test_local_rung_gets_smaller_evidence_budget(tmp_path):
+    many = [Chunk(**{**CAR.__dict__, "doc_id": f"d{i}", "text": "fact " * 300, "score": 5.0 - i}) for i in range(6)]
+    local = Scripted(reply="Local [1]")
+    with client(layer(groq_fast=Scripted(reply=DOCS_PLAN), local=local), tmp_path, many) as c:
+        ask(c)
+    assert local.calls[-1][0].text.count("<doc id=") == 3  # ~1200-token evidence budget
+
+
+def test_planner_sees_note_hints(tmp_path):
+    fast = Scripted(reply=DOCS_PLAN)
+    with client(layer(groq_fast=fast, groq_smart=Scripted(reply="ok")), tmp_path, [CAR]) as c:
+        ask(c, text="When is the service due?")
+    assert "- Car (notes/car.md)" in fast.calls[0][0].text

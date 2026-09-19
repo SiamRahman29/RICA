@@ -10,6 +10,7 @@ class Route:
     can: str | None  # capability line; None = not listed
     cannot: str  # used in the "cannot (yet)" line while disabled
     planner: str  # when the planner should pick this route
+    planner_fields: str = ""  # how to fill the plan fields this route uses
 
 
 ROUTES: list[Route] = [
@@ -19,14 +20,20 @@ ROUTES: list[Route] = [
         None,
         "",
         "conversation, writing, reasoning, general knowledge, questions about RICA "
-        "itself, or the current date/time",
+        "itself, or the current date/time. Only when nothing about {name} needs looking up",
     ),
     Route(
         "docs",
-        False,
+        True,
         "Search and read {name}'s notes (Markdown knowledge base).",
         "search {name}'s notes",
-        "anything about {name} or their notes, projects, people, or plans",
+        "any question whose answer could depend on {name}'s own life: their background, people, "
+        "preferences and habits, belongings, plans, projects, or anything they wrote down. "
+        "Use it even for casual questions (\"how do I take my coffee?\", \"when is my car due?\")",
+        "For docs: doc_filter=about_me when the question is about {name} personally, else any. "
+        "doc_mode: facts for specific questions (the usual case); whole_doc only to summarize or "
+        "discuss one whole note (put its name or topic in doc_hint); find_docs only when {name} "
+        "asks which notes mention something or where they wrote about it.",
     ),
     Route(
         "web",

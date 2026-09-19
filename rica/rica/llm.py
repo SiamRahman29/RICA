@@ -25,6 +25,7 @@ LOCAL = "local"
 class ModelSpec(BaseModel):
     input_budget: int
     max_output: int
+    evidence_budget: int = 0  # 0 = whatever the input budget leaves
     timeout: float = 60
     params: dict = Field(default_factory=dict)
 

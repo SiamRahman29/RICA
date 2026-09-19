@@ -1,30 +1,36 @@
 # Model ladders (RICA_PLAN.md §5.3). The agent tries each rung in order and
 # rebuilds the context for that rung's input budget.
 # input_budget is in tokens; the agent uses 90% of it as a safety margin.
+# evidence_budget caps the tokens of <doc>/<web> evidence within that input budget.
 
 models:
   groq-fast:
     input_budget: 3000
+    evidence_budget: 1500
     max_output: 400
     timeout: 30
     params: {reasoning_effort: low}
   groq-smart:
     input_budget: 6000
+    evidence_budget: 4000
     max_output: 1500
     timeout: 60
     params: {reasoning_effort: low}
   gemini-flash:
     input_budget: 60000
+    evidence_budget: 40000
     max_output: 2048
     timeout: 90
     params: {reasoning_effort: low}
   gemini-lite:
     input_budget: 30000
+    evidence_budget: 15000
     max_output: 1024
     timeout: 60
     params: {reasoning_effort: low}
   local:
     input_budget: 3000
+    evidence_budget: 1200
     max_output: 768
     timeout: 300
 

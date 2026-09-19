@@ -481,7 +481,7 @@ ai-infra/
     │   │   └── answer.py
     │   ├── retrieval/
     │   │   ├── store.py       # Qdrant + FastEmbed
-    │   │   └── rerank.py
+    │   │   └── search.py      # facts / whole_doc / find_docs, rerank, neighbors
     │   ├── web/
     │   │   ├── searx.py
     │   │   ├── fetch.py       # httpx + SSRF guard + trafilatura
@@ -614,12 +614,21 @@ Notes from the build:
 - Dense embeddings use a small FastEmbed adapter (`retrieval/store.py`) instead of `langchain-community`. Debug search: `docker exec rica-ingest python -m rica.retrieval.store "query"`.
 - RAM: rica-ingest about 380 MB, Qdrant about 35 MB.
 
-### M4 — Document Q&A
-- [ ] `docs_retrieve` modes `facts`, `whole_doc`, `find_docs`; `about_me` filter; reranker; neighbor expansion.
-- [ ] Evidence packing per rung; citations + Sources list; not-found behavior.
-- [ ] (Optional) `rica_docs` summaries.
+### M4 — Document Q&A ✅ built 2026-09-19 (real-data eval pending)
+- [x] `docs_retrieve` modes `facts`, `whole_doc`, `find_docs`; `about_me` filter; reranker; neighbor expansion.
+- [x] Evidence packing per rung; citations + Sources list; not-found behavior.
+- [ ] (Optional) `rica_docs` summaries. Skipped for now; revisit if whole_doc resolution struggles on the real repo.
 
 **Accept:** eval doc questions: correct source in top-5 ≥ 80%; all `[n]` citations valid; unanswerable question → "couldn't find it" (no fabrication).
+✅ on a synthetic corpus (8 notes, 23 questions), 2026-09-19. Top-5 source hits were 16/16, all at rank 1. End to end, all 23 answers passed their keyword checks, with 0 invalid citations. All 3 unanswerable questions got "couldn't find it". Planner routing was right on 45 of 46 across two runs. Docs p50 is about 3 s on Groq; a whole-doc summary on Gemini took 9–26 s. **Still to do:** rerun on the owner's real notes once they are written (M6 eval set).
+
+Notes from the build:
+- **Reranker threshold:** MiniLM-L6 barely separates relevant from irrelevant on short, list-style notes. Real hits scored as low as −9.7 and misses −10.4 to −11.2; L-12 and the jina rerankers did no better. The threshold is therefore a coarse floor (`RERANK_THRESHOLD=-10`), and the answer model decides "not found" using the rules and a `<doc_search status="not found">` block. Retune on the real eval set.
+- **Candidates:** 20 for facts and 30 for find_docs, not 30 and 50. Reranking costs about 0.1 s per candidate on this CPU.
+- **Planner hints:** before planning, a quick hybrid search (about 10 ms, no rerank) gives the planner the 3 closest note titles. This fixed generic phrasings like "how do I make khichuri?" that have a matching note.
+- **Citations:** gpt-oss cites as `【1†L5-L6】`. The answer stream rewrites these to `[1]`, and Sources lists only cited ids that were actually packed. Invalid ids are logged as `invalid_citations`.
+- **Evidence budgets** are per model in `ladders.yaml` (`evidence_budget`): groq-smart 4K, gemini-flash 40K, local 1.2K (about 3 chunks). Contiguous chunks merge into one `<doc>` block, with the splitter's overlap removed.
+- RAM: rica is about 450 MB with the embedding and rerank models loaded.
 
 ### M5 — Web search + link reading
 - [ ] `searxng` service + settings.

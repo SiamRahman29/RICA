@@ -54,7 +54,7 @@ def heuristic_plan(text: str) -> Plan:
     return restrict(Plan(routes=routes, standalone_query=text), text)
 
 
-def _system(name: str, now: datetime) -> str:
+def _system(name: str, now: datetime, hints: list[str]) -> str:
     lines = [
         f"You are RICA, planning how to handle {name}'s latest request. "
         "Do not answer it; only fill in the plan as JSON.",
@@ -63,6 +63,11 @@ def _system(name: str, now: datetime) -> str:
         "Routes:",
     ]
     lines += [f"- {r.name}: {r.planner.format(name=name)}" for r in enabled_routes()]
+    lines += [""] + [r.planner_fields.format(name=name) for r in enabled_routes() if r.planner_fields]
+    if hints:
+        lines += ["", f"Closest notes from a quick search of {name}'s notes (often unrelated):"]
+        lines += [f"- {h}" for h in hints]
+        lines.append("If one of them probably answers the request, include docs.")
     lines += ["", "Also write standalone_query: the latest request rewritten in the user's own voice so it makes "
         "sense on its own (a request, not a description of it)."]
     return "\n".join(lines)
@@ -83,7 +88,9 @@ def _transcript(history: list[BaseMessage], budget: int) -> str:
     return "\n\n".join(reversed(lines))
 
 
-def planner_messages(rung: Rung, name: str, now: datetime, history: list[BaseMessage]) -> list[BaseMessage]:
-    system = SystemMessage(_system(name, now))
+def planner_messages(
+    rung: Rung, name: str, now: datetime, history: list[BaseMessage], hints: list[str] = ()
+) -> list[BaseMessage]:
+    system = SystemMessage(_system(name, now, list(hints)))
     room = rung.input_budget - tokens.count(system.text) - 400  # room for the JSON schema
     return [system, HumanMessage("Conversation (latest last):\n\n" + _transcript(history, room))]

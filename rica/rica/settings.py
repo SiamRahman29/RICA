@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     qdrant_collection: str = "rica_chunks"
     data_dir: Path = Path("/data")
     fastembed_cache: Path = Path("/cache/fastembed")
+    # Cross-encoder logit below which a chunk is dropped as unrelated. MiniLM-L6 separates
+    # poorly on short list-style notes (M4 test set: real hits down to -9.7, misses -10.4
+    # and below), so this is only a coarse floor; the answer model decides "not found".
+    rerank_threshold: float = -10.0
 
     # Knowledge sync (rica-ingest)
     knowledge_repo: str = ""

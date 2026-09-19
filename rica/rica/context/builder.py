@@ -57,8 +57,10 @@ def stable_prefix(p: Profile) -> str:
     )
 
 
-def answer_system(p: Profile, now: datetime, tier: str, extra: str = "") -> str:
+def answer_system(p: Profile, now: datetime, tier: str, extra: str = "", context: str = "") -> str:
     parts = [stable_prefix(p), f"Now: {format_now(now)}. Tier: {tier}."]
+    if context:
+        parts.append(context)
     if extra:
         parts.append(f"<ui_instructions>\n{extra}\n</ui_instructions>")
     return "\n\n".join(parts)
@@ -84,8 +86,9 @@ def fit_history(history: list[BaseMessage], budget: int) -> list[BaseMessage]:
 
 
 def answer_messages(
-    p: Profile, now: datetime, tier: str, budget: int, history: list[BaseMessage], extra: str = ""
+    p: Profile, now: datetime, tier: str, budget: int, history: list[BaseMessage],
+    extra: str = "", context: str = "",
 ) -> list[BaseMessage]:
-    system = SystemMessage(answer_system(p, now, tier, extra))
+    system = SystemMessage(answer_system(p, now, tier, extra, context))
     room = budget - tokens.count_messages([system])
     return [system, *fit_history(history, room)]

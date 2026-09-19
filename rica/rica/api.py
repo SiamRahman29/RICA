@@ -4,9 +4,10 @@ import asyncio
 import json
 import logging
 import secrets
+import threading
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 from rica.context.profile import ProfileStore
 from rica.graph import UNAVAILABLE, Deps, build_graph
 from rica.llm import LOCAL, ModelLayer
+from rica.retrieval.search import DocSearch
 from rica.settings import Settings
 
 log = logging.getLogger("rica")
@@ -58,20 +60,41 @@ def to_state(messages: list[ChatMessage]) -> dict:
     return {"messages": history, "ui_system": "\n\n".join(t for t in ui_system if t.strip())}
 
 
-def create_app(settings: Settings | None = None, models: ModelLayer | None = None) -> FastAPI:
+def lazy[T](make: Callable[[], T]) -> Callable[[], T]:
+    """Thread-safe create-once: embedding models load on first use, not at import."""
+    lock, box = threading.Lock(), []
+
+    def get() -> T:
+        with lock:
+            if not box:
+                box.append(make())
+            return box[0]
+
+    return get
+
+
+def create_app(
+    settings: Settings | None = None,
+    models: ModelLayer | None = None,
+    doc_search: Callable[[], DocSearch] | None = None,
+) -> FastAPI:
     settings = settings or Settings()
     models = models or ModelLayer.from_settings(settings)
     profiles = ProfileStore(settings.knowledge_dir / "_rica" / "profile.md", settings.owner_name, settings.tz)
-    graph = build_graph(Deps(models, profiles, settings.planner_history_messages))
+    doc_search = doc_search or lazy(lambda: DocSearch(settings))
+    graph = build_graph(Deps(models, profiles, doc_search, settings.planner_history_messages))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if not settings.rica_internal_key:
             raise RuntimeError("RICA_INTERNAL_KEY is not set")
-        warmup = asyncio.create_task(_warm_local(models)) if settings.warmup_local else None
+        tasks = []
+        if settings.warmup_local:
+            tasks.append(asyncio.create_task(_warm_local(models)))
+            tasks.append(asyncio.create_task(_warm_docs(doc_search)))
         yield
-        if warmup:
-            warmup.cancel()
+        for t in tasks:
+            t.cancel()
 
     app = FastAPI(title="RICA", lifespan=lifespan)
 
@@ -109,6 +132,10 @@ def create_app(settings: Settings | None = None, models: ModelLayer | None = Non
             "plan_source": info.get("plan_source"),
             "answer_tier": info.get("answer_tier"),
             "local": info.get("answer_tier") == LOCAL,
+            "doc_mode": plan.doc_mode if plan and "docs" in plan.routes else None,
+            "doc_status": info.get("doc_status"),
+            "evidence": info.get("evidence_used"),
+            "invalid_citations": info.get("invalid_citations") or None,
             "attempts": info.get("attempts"),
             "latency_s": round(time.monotonic() - t0, 2),
         }))
@@ -155,6 +182,15 @@ async def _warm_local(models: ModelLayer) -> None:
             last = e
             await asyncio.sleep(6)
     log.warning("local warm-up failed: %s", last)
+
+
+async def _warm_docs(doc_search: Callable[[], DocSearch]) -> None:
+    """Loads the embedding and rerank models (downloads them on first run)."""
+    try:
+        await asyncio.to_thread(doc_search)
+        log.info("docs search ready")
+    except Exception as e:
+        log.warning("docs search warm-up failed: %s", e)
 
 
 def app() -> FastAPI:

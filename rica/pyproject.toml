@@ -22,6 +22,7 @@ dependencies = [
     "fastembed>=0.8",
     "pathspec>=1.1",
     "sqlalchemy>=2",
+    "rapidfuzz>=3.14.6",
 ]
 
 [dependency-groups]

@@ -36,10 +36,10 @@ class Scripted(BaseChatModel):
 CONFIG = LaddersConfig(
     models={
         "groq-fast": ModelSpec(input_budget=3000, max_output=400),
-        "groq-smart": ModelSpec(input_budget=6000, max_output=1500),
+        "groq-smart": ModelSpec(input_budget=6000, max_output=1500, evidence_budget=4000),
         "gemini-flash": ModelSpec(input_budget=60000, max_output=2048),
         "gemini-lite": ModelSpec(input_budget=30000, max_output=1024),
-        "local": ModelSpec(input_budget=3000, max_output=768),
+        "local": ModelSpec(input_budget=3000, max_output=768, evidence_budget=1200),
     },
     ladders={
         "understand": ["groq-fast", "gemini-lite", "local"],
