@@ -578,12 +578,13 @@ Each milestone ends with its acceptance checks passing.
 
 **Accept:** server can `git clone` the knowledge repo with the deploy key. ✅ 2026-09-17 (clone works; push with the key is denied).
 
-### M1 — Model gateway
-- [ ] `litellm` service + `config.yaml` (§5.2). *Written, not yet started or tested (image pinned to `v1.101.0`).*
-- [ ] Point Open WebUI to LiteLLM; configure task model (§9). *In compose, not yet applied.*
-- [ ] Update `llamacpp` (ctx 8192). *In compose, not yet applied.*
+### M1 — Model gateway ✅ 2026-09-19
+- [x] `litellm` service + `config.yaml` (§5.2), image pinned to `v1.101.0`.
+- [x] Point Open WebUI to LiteLLM; configure task model (§9). Open WebUI had no saved connection, so the env settings apply.
+- [x] Update `llamacpp` (ctx 8192).
 
 **Accept:** every alias answers from Open WebUI; with an invalid Groq key, `chat-auto` answers via Gemini; with no internet, `chat-auto` answers via `local`.
+✅ 2026-09-19: all six aliases answer through LiteLLM, and Open WebUI lists them. A throwaway LiteLLM with a bad Groq key answered `chat-auto` from Gemini (1 fallback). One on an internal-only Docker network (llama.cpp reachable, no internet) answered from `local` (2 fallbacks).
 
 ### M2 — RICA skeleton (identity + chat)
 - [ ] FastAPI OpenAI-compatible endpoint with streaming; register `rica` in LiteLLM.
