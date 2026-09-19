@@ -119,9 +119,10 @@ class ModelLayer:
 
     async def stream(
         self, ladder: str, build: BuildMessages, attempts: list[str]
-    ) -> AsyncIterator[tuple[str, str]]:
-        """Yields (alias, text). Falls back only before the first token: once text has
-        reached the user, a failure is raised instead of mixing two models' answers."""
+    ) -> AsyncIterator[tuple[str, str | None]]:
+        """Yields (alias, text). If a rung fails after it started streaming, yields
+        (alias, None) to say that partial answer is abandoned, then starts over on the
+        next rung, so two models' text never mixes silently."""
         for rung in self.ladder(ladder):
             started = False
             try:
@@ -131,8 +132,10 @@ class ModelLayer:
                         yield rung.alias, text
             except Exception as e:
                 if started:
+                    log.warning("%s: %s failed mid-answer: %s: %s", ladder, rung.alias, type(e).__name__, str(e)[:300])
                     attempts.append(f"{rung.alias}:cut:{type(e).__name__}")
-                    raise
+                    yield rung.alias, None
+                    continue
                 log.warning("%s: %s failed: %s: %s", ladder, rung.alias, type(e).__name__, str(e)[:300])
                 attempts.append(f"{rung.alias}:{type(e).__name__}")
                 continue

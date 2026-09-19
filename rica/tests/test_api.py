@@ -35,7 +35,7 @@ DOCS_PLAN = '{"routes": ["docs"], "standalone_query": "When is my car service du
 
 
 def client(models, tmp_path, chunks=()) -> TestClient:
-    s = Settings(rica_internal_key=KEY, knowledge_dir=tmp_path, owner_name="Ana", warmup_local=False)
+    s = Settings(rica_internal_key=KEY, knowledge_dir=tmp_path, data_dir=tmp_path, owner_name="Ana", warmup_local=False)
     search = FakeSearch(list(chunks))
     return TestClient(create_app(s, models, lambda: search))
 
@@ -101,7 +101,8 @@ def test_heuristic_plan(monkeypatch, text, route):
     assert heuristic_plan(text).routes == [route]
 
 
-def test_heuristic_plan_only_uses_enabled_routes():
+def test_heuristic_plan_only_uses_enabled_routes(monkeypatch):
+    monkeypatch.setattr("rica.nodes.understand.enabled_names", lambda: {"chat"})
     assert heuristic_plan("read https://example.com").routes == ["chat"]
 
 
@@ -136,3 +137,49 @@ def test_planner_sees_note_hints(tmp_path):
     with client(layer(groq_fast=fast, groq_smart=Scripted(reply="ok")), tmp_path, [CAR]) as c:
         ask(c, text="When is the service due?")
     assert "- Car (notes/car.md)" in fast.calls[0][0].text
+
+
+def test_docs_and_web_merge_with_continuing_ids(tmp_path, monkeypatch):
+    web_chunk = Chunk(doc_id="https://n.com/a", source="https://n.com/a", title="News", heading_path="",
+                      chunk_index=0, text="Average car service interval is 10,000 km.", updated_at="2026-09-01",
+                      score=1.0, origin="web", date_label="published")
+
+    async def fake_search(tools, plan):
+        return [web_chunk], "found"
+
+    monkeypatch.setattr("rica.graph.web_search", fake_search)
+    plan = '{"routes": ["docs", "web"], "standalone_query": "Is my car service interval typical?"}'
+    smart = Scripted(reply="Yours is December [1]; typical is 10,000 km [2].")
+    with client(layer(groq_fast=Scripted(reply=plan), groq_smart=smart), tmp_path, [CAR]) as c:
+        text = ask(c).json()["choices"][0]["message"]["content"]
+    system = smart.calls[-1][0].text
+    assert '<doc id=1 src="notes/car.md › Car"' in system
+    assert '<web id=2 src="https://n.com/a" published="2026-09-01">' in system
+    assert "- [2] News: https://n.com/a (published 2026-09-01)" in text
+
+
+def test_link_in_message_is_always_read(tmp_path, monkeypatch):
+    from rica.nodes.web import UrlNote
+
+    seen = {}
+
+    async def fake_read(tools, urls, query):
+        seen["urls"] = urls
+        return [], [UrlNote(urls[0], "blocked", "internal")]
+
+    monkeypatch.setattr("rica.graph.read_urls", fake_read)
+    smart = Scripted(reply="I can't open that address.")
+    with client(layer(groq_fast=Scripted(reply=PLAN), groq_smart=smart), tmp_path) as c:
+        ask(c, text="what's at http://litellm:4000/ ?")
+    assert seen["urls"] == ["http://litellm:4000/"]
+    assert 'status="blocked"' in smart.calls[-1][0].text
+
+
+def test_mid_answer_failure_restarts_with_notice(tmp_path):
+    from rica.graph import RESTART_NOTICE
+
+    models = layer(groq_fast=Scripted(reply=PLAN), groq_smart=Scripted(reply="partial words", fail_after_first=True),
+                   gemini_flash=Scripted(reply="Complete answer."))
+    with client(models, tmp_path) as c:
+        text = ask(c).json()["choices"][0]["message"]["content"]
+    assert text == "partial" + RESTART_NOTICE + "Complete answer."

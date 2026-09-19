@@ -50,8 +50,8 @@ def test_profile_hot_reload(tmp_path):
 def test_capabilities_lists_what_is_not_possible_yet():
     text = capabilities("Ana")
     can, cannot = text.split("You cannot (yet):")
-    assert "Search and read Ana's notes" in can
-    assert "calendar" in cannot and "search the web" in cannot
+    assert "Search and read Ana's notes" in can and "Search the web" in can
+    assert "calendar" in cannot and "files" in cannot
 
 
 def test_fit_history_keeps_latest_and_starts_on_user():

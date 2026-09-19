@@ -50,6 +50,7 @@ class Evidence:
     locator: str  # "about/people.md › Family" or a URL
     text: str
     date: str | None
+    date_label: str = "updated"
 
 
 def join_overlapping(a: str, b: str) -> str:
@@ -102,17 +103,21 @@ def pack_docs(chunks: list[Chunk], budget: int, first_id: int = 1) -> list[Evide
             heading = _common_heading([c.heading_path for c in run])
             locator = f"{head.source} › {heading}" if heading else head.source
             blocks.append(Evidence(
-                id=first_id + len(blocks), source="doc", title=head.title, locator=locator,
-                text=text, date=(head.updated_at or "")[:10] or None,
+                id=first_id + len(blocks), source=head.origin, title=head.title, locator=locator,
+                text=text, date=(head.updated_at or "")[:10] or None, date_label=head.date_label,
             ))
             run = [c] if c is not None else []
     return blocks
 
 
+def used_tokens(evidence: list[Evidence]) -> int:
+    return sum(tokens.count(e.text) + TAG_OVERHEAD for e in evidence)
+
+
 def render(evidence: list[Evidence]) -> str:
     parts = []
     for e in evidence:
-        date = f' updated="{e.date}"' if e.date else ""
+        date = f' {e.date_label}="{e.date}"' if e.date else ""
         parts.append(f'<{e.source} id={e.id} src="{escape(e.locator)}"{date}>\n{e.text}\n</{e.source}>')
     return "\n\n".join(parts)
 
@@ -133,8 +138,9 @@ def sources_block(evidence: list[Evidence], answer: str) -> tuple[str, list[int]
     lines = []
     for i in sorted(n for n in cited if n in by_id):
         e = by_id[i]
-        date = f" (updated {e.date})" if e.date else ""
-        lines.append(f"[{i}] {e.title}: `{e.locator}`{date}")
+        date = f" ({e.date_label} {e.date})" if e.date else ""
+        where = e.locator if e.source == "web" else f"`{e.locator}`"
+        lines.append(f"[{i}] {e.title}: {where}{date}")
     invalid = [n for n in cited if n not in by_id]
     if not lines:
         return "", invalid

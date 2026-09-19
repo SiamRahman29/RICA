@@ -18,7 +18,9 @@ from pydantic import BaseModel
 from rica.context.profile import ProfileStore
 from rica.graph import UNAVAILABLE, Deps, build_graph
 from rica.llm import LOCAL, ModelLayer
+from rica.nodes.web import WebTools
 from rica.retrieval.search import DocSearch
+from rica.web.cache import WebCache
 from rica.settings import Settings
 
 log = logging.getLogger("rica")
@@ -82,7 +84,8 @@ def create_app(
     models = models or ModelLayer.from_settings(settings)
     profiles = ProfileStore(settings.knowledge_dir / "_rica" / "profile.md", settings.owner_name, settings.tz)
     doc_search = doc_search or lazy(lambda: DocSearch(settings))
-    graph = build_graph(Deps(models, profiles, doc_search, settings.planner_history_messages))
+    web = WebTools(settings.searxng_url, WebCache(settings.data_dir / "web_cache.db"), settings.web_pages_to_read)
+    graph = build_graph(Deps(models, profiles, doc_search, web, settings.planner_history_messages))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -134,6 +137,9 @@ def create_app(
             "local": info.get("answer_tier") == LOCAL,
             "doc_mode": plan.doc_mode if plan and "docs" in plan.routes else None,
             "doc_status": info.get("doc_status"),
+            "web_status": info.get("web_status"),
+            "urls_read": len({c.source for c in info.get("url_chunks") or []}) or None,
+            "url_notes": [n.reason for n in info.get("url_notes") or []] or None,
             "evidence": info.get("evidence_used"),
             "invalid_citations": info.get("invalid_citations") or None,
             "attempts": info.get("attempts"),

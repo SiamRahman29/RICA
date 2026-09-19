@@ -1,0 +1,21 @@
+# SearXNG for RICA's web route (RICA_PLAN.md §8.5). Internal only: no host port, no ngrok.
+use_default_settings: true
+
+general:
+  instance_name: "rica-search"
+
+server:
+  # Overridden by the SEARXNG_SECRET environment variable
+  secret_key: "set-SEARXNG_SECRET-in-.env"
+  limiter: false          # only RICA calls it
+  image_proxy: false
+  public_instance: false
+
+search:
+  safe_search: 0
+  default_lang: "en"
+  formats: [html, json]
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0

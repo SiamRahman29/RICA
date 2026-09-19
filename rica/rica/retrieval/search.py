@@ -31,6 +31,8 @@ class Chunk:
     updated_at: str | None
     score: float = 0.0
     neighbor: bool = False  # added for context, not matched itself
+    origin: str = "doc"  # "doc" (notes) or "web" (pages, search snippets)
+    date_label: str = "updated"  # what updated_at means: updated, published, fetched
 
     @property
     def key(self) -> tuple[str, int]:
@@ -83,11 +85,12 @@ class DocSearch:
         return [_chunk(p.payload) for p in points]
 
     def neighbors(self, hits: Iterable[Chunk]) -> list[Chunk]:
-        """chunk_index ± 1 of each hit, scored just below its parent."""
+        """chunk_index ± 1 of each hit, plus the note's first chunk (it usually says what the
+        note is about, e.g. which car), scored just below their parent."""
         have = {h.key for h in hits}
         wanted: dict[str, dict[int, float]] = {}
         for h in hits:
-            for i in (h.chunk_index - 1, h.chunk_index + 1):
+            for i in (h.chunk_index - 1, h.chunk_index + 1, 0):
                 if i >= 0 and (h.doc_id, i) not in have:
                     wanted.setdefault(h.doc_id, {})[i] = max(wanted.get(h.doc_id, {}).get(i, -1e9), h.score)
         out = []

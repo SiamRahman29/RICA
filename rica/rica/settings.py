@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # and below), so this is only a coarse floor; the answer model decides "not found".
     rerank_threshold: float = -10.0
 
+    # Web (M5)
+    searxng_url: str = "http://searxng:8080"
+    web_pages_to_read: int = 3
+
     # Knowledge sync (rica-ingest)
     knowledge_repo: str = ""
     knowledge_branch: str = "main"

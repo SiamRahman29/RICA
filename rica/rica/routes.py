@@ -20,7 +20,8 @@ ROUTES: list[Route] = [
         None,
         "",
         "conversation, writing, reasoning, general knowledge, questions about RICA "
-        "itself, or the current date/time. Only when nothing about {name} needs looking up",
+        "itself, or the current date/time. Only when nothing about {name} needs looking up "
+        "and nothing needs current information",
     ),
     Route(
         "docs",
@@ -37,14 +38,19 @@ ROUTES: list[Route] = [
     ),
     Route(
         "web",
-        False,
+        True,
         "Search the web and read web pages.",
         "search the web",
-        "current events, prices, recent facts, or anything that needs up-to-date information",
+        "news, current events, prices, weather, schedules, recent releases, or facts you are "
+        "not sure of. Use BOTH docs and web when {name} asks whether something of theirs is "
+        "typical, normal, good, or up to date (\"is my X normal?\", \"is my plan realistic?\")",
+        "For web: search_queries = 1-3 short keyword queries (different angles, not rephrasings); "
+        "recency = day or week for news and fast-changing facts, else any; snippets_sufficient = true "
+        "only for one simple fact a search snippet would show (a date, a score, a price).",
     ),
     Route(
         "url",
-        False,
+        True,
         "Read web pages from links {name} sends.",
         "open links",
         "the message contains a link that should be read",

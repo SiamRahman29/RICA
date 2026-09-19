@@ -630,12 +630,26 @@ Notes from the build:
 - **Evidence budgets** are per model in `ladders.yaml` (`evidence_budget`): groq-smart 4K, gemini-flash 40K, local 1.2K (about 3 chunks). Contiguous chunks merge into one `<doc>` block, with the splitter's overlap removed.
 - RAM: rica is about 450 MB with the embedding and rerank models loaded.
 
-### M5 — Web search + link reading
-- [ ] `searxng` service + settings.
-- [ ] `web_search` and `url_read` nodes, SSRF guard, trafilatura, BM25 selection, cache.
-- [ ] Parallel docs + web routes merge in `answer`.
+### M5 — Web search + link reading ✅ 2026-09-19
+- [x] `searxng` service + settings (pinned `2026.9.19-e831fc2a1`, internal only, limiter off).
+- [x] `web_search` and `url_read` nodes, SSRF guard, trafilatura, BM25 selection, cache.
+- [x] Parallel docs + web routes merge in `answer`.
 
 **Accept:** current-events question answered with dated URL citations; pasted link summarized; `http://litellm:4000`, `http://127.0.0.1`, `http://169.254.169.254` are refused; mixed question ("is my X typical?") cites both notes and web.
+✅ 2026-09-19:
+- Asian Games headlines came back with dated Times of India / Al Jazeera / The Hindu citations in about 3.5 s.
+- A Wikipedia link was summarized.
+- All three internal addresses were refused (the fetcher also refuses `localhost`, `::1`, `10.x`, `127.1`, the decimal form `2130706433`, and `file://`).
+- "Is my rooftop solar's winter output typical?" and "Is my car's service interval normal?" routed to docs + web and cited both, with 0 invalid citations. The docs regression set still passes 22/23.
+
+Notes from the build:
+- **SSRF guard (`web/fetch.py`):** each hop is resolved and must be entirely public (`ip.is_global`). The request then goes to the checked IP, with the original host as SNI and Host header, which closes DNS rebinding. Redirects are followed by hand and re-checked. Limits: 8 s, 2 MB, HTML only.
+- **SearXNG:** general search (DuckDuckGo, Brave, Google CSE) is good. The news category only has Bing News here, so recent-news plans run general search with `time_range` plus one news search.
+- **Ladder choice:** only whole notes, long linked pages, or long chats use `answer_long`. Search results are packed to groq-smart's 4K evidence budget, which keeps news answers on Groq (about 3–4 s rather than about 12 s on Gemini).
+- **Mid-answer failures:** Gemini once returned a 503 ("high demand") in the middle of the stream. The agent now says so and restarts the answer on the next rung, instead of ending with "ask again".
+- **Evidence budget:** shared across link pages, then notes, then web results. Each group gets a fair share of what's left, and ids continue across groups.
+- **Facts retrieval** now also adds each matched note's first chunk (its intro usually says what the note is about, e.g. which car).
+- **Rules:** cite only ids that exist; general knowledge is not cited. Added after a docs-only answer invented a `[2]`.
 
 ### M6 — Evaluation + hardening
 - [ ] `eval/questions.yaml` (~30 real questions: `question`, `expected_routes`, `expected_sources`, `notes`) + `run_eval.py` (routing accuracy, top-5 source hit rate).

@@ -39,10 +39,12 @@ async def test_stream_falls_back_and_rebuilds_per_rung():
     assert budgets == [5400, 54000]
 
 
-async def test_stream_does_not_switch_models_mid_answer():
-    models = layer(groq_smart=Scripted(reply="one two", fail_after_first=True))
-    with pytest.raises(RuntimeError):
-        _ = [x async for x in models.stream("answer", lambda r: [("user", "hi")], [])]
+async def test_stream_restarts_on_next_rung_after_mid_answer_failure():
+    models = layer(groq_smart=Scripted(reply="one two", fail_after_first=True), gemini_flash=Scripted(reply="fresh answer"))
+    attempts: list[str] = []
+    out = [x async for x in models.stream("answer", lambda r: [("user", "hi")], attempts)]
+    assert out == [("groq-smart", "one"), ("groq-smart", None), ("gemini-flash", "fresh"), ("gemini-flash", " answer")]
+    assert attempts == ["groq-smart:cut:RuntimeError", "gemini-flash:ok"]
 
 
 async def test_stream_empty_answer_advances():

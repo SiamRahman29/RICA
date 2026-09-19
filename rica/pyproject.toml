@@ -23,6 +23,9 @@ dependencies = [
     "pathspec>=1.1",
     "sqlalchemy>=2",
     "rapidfuzz>=3.14.6",
+    "trafilatura>=2.2.0",
+    "rank-bm25>=0.2.2",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]

@@ -59,6 +59,7 @@ services:
     depends_on:
       - litellm
       - qdrant
+      - searxng
     networks:
       - ai_network
 
@@ -85,6 +86,17 @@ services:
     depends_on:
       - qdrant
       - rica
+    networks:
+      - ai_network
+
+  searxng:
+    image: searxng/searxng:2026.9.19-e831fc2a1
+    container_name: searxng
+    restart: unless-stopped
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
     networks:
       - ai_network
 
