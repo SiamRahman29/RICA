@@ -1,5 +1,9 @@
 FROM python:3.12-slim
 
+# git + ssh for rica-ingest's knowledge repo sync
+RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:0.12.17 /uv /bin/uv
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -16,7 +20,8 @@ RUN uv sync --frozen --no-dev \
  && python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
 
 # Volume mount points owned by the app user so named volumes inherit it
-RUN useradd --uid 1000 --create-home rica && mkdir -p /knowledge /data && chown rica /knowledge /data
+RUN useradd --uid 1000 --create-home rica && mkdir -p /knowledge /data /cache/fastembed \
+ && chown rica /knowledge /data /cache/fastembed
 USER rica
 
 EXPOSE 8000

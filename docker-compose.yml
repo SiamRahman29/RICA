@@ -52,11 +52,50 @@ services:
       - OWNER_NAME=${OWNER_NAME:-}
       - TZ=${TZ:-Asia/Dhaka}
     volumes:
-      # Filled by rica-ingest in M3; until then the profile falls back to OWNER_NAME
+      # Kept in sync with the knowledge repo by rica-ingest
       - knowledge:/knowledge:ro
       - rica_data:/data
+      - fastembed_cache:/cache/fastembed
     depends_on:
       - litellm
+      - qdrant
+    networks:
+      - ai_network
+
+  rica-ingest:
+    image: rica:local
+    pull_policy: never  # built by the rica service
+    container_name: rica-ingest
+    restart: unless-stopped
+    command: ["python", "-m", "rica.ingest.worker"]
+    environment:
+      - KNOWLEDGE_REPO=${KNOWLEDGE_REPO}
+      - KNOWLEDGE_BRANCH=${KNOWLEDGE_BRANCH:-main}
+      - TZ=${TZ:-Asia/Dhaka}
+    volumes:
+      - knowledge:/knowledge
+      - rica_data:/data
+      - fastembed_cache:/cache/fastembed
+      - ./secrets/rica_deploy_key:/run/secrets/deploy_key:ro
+      - ./secrets/known_hosts:/run/secrets/known_hosts:ro
+    # Embedding must not starve local-model inference on this 2-core host
+    cpus: 1.0
+    healthcheck:
+      disable: true
+    depends_on:
+      - qdrant
+      - rica
+    networks:
+      - ai_network
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    container_name: qdrant
+    restart: unless-stopped
+    environment:
+      - QDRANT__TELEMETRY_DISABLED=true
+    volumes:
+      - qdrant_data:/qdrant/storage
     networks:
       - ai_network
 
@@ -101,6 +140,8 @@ volumes:
   openwebui_data:
   knowledge:
   rica_data:
+  qdrant_data:
+  fastembed_cache:
 
 networks:
   ai_network:

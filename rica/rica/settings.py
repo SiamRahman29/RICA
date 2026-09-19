@@ -18,3 +18,16 @@ class Settings(BaseSettings):
     ladders_file: Path = PACKAGE_DIR / "config" / "ladders.yaml"
     warmup_local: bool = True
     planner_history_messages: int = 6
+
+    # Retrieval (M3+)
+    qdrant_url: str = "http://qdrant:6333"
+    qdrant_collection: str = "rica_chunks"
+    data_dir: Path = Path("/data")
+    fastembed_cache: Path = Path("/cache/fastembed")
+
+    # Knowledge sync (rica-ingest)
+    knowledge_repo: str = ""
+    knowledge_branch: str = "main"
+    sync_interval_s: int = 120
+    deploy_key: Path = Path("/run/secrets/deploy_key")
+    known_hosts: Path = Path("/run/secrets/known_hosts")

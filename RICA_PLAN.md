@@ -601,11 +601,18 @@ Notes from the build:
 - The settings module is `rica/settings.py`, not `config.py`, because `config/` (ladders.yaml) is a directory in the same package.
 - Until M3 fills the `knowledge` volume, the profile falls back to `OWNER_NAME` from `.env`.
 
-### M3 — Knowledge sync + ingestion
-- [ ] `rica-ingest` git loop (§7.2), loader + `.ricaignore` + splitting + metadata (§7.3).
-- [ ] Qdrant hybrid collection via indexing API + record manager.
+### M3 — Knowledge sync + ingestion ✅ 2026-09-19
+- [x] `rica-ingest` git loop (§7.2), loader + `.ricaignore` + splitting + metadata (§7.3).
+- [x] Qdrant hybrid collection via indexing API + record manager.
 
 **Accept:** pushed new note searchable within ~3 min; edited note replaces old chunks; deleted note's chunks removed; re-run with no changes embeds 0 chunks; `.ricaignore`d file never appears in Qdrant; editing `_rica/profile.md` changes RICA's behavior without restart.
+✅ 2026-09-19. These checks ran against a scratch git repo and a separate collection, so the real knowledge repo got no test commits: new notes searchable, an edit replaced its chunk, a delete removed its chunks, a commit touching only ignored files embedded 0, the ignored file never appeared, and a profile edit changed the next answer. A new note becomes searchable within one 120 s loop; indexing itself takes under a second. The live sync from GitHub over the deploy key indexed the 3 `about/` notes.
+
+Notes from the build:
+- Chunk metadata leaves out `commit_sha`. The index hash covers metadata, so a per-commit SHA would re-embed every chunk on every commit. The indexed SHA is kept in `/data/ingest_state.json`.
+- Index keys are SHA-256 digests formatted as UUIDs, because Qdrant point IDs must be UUIDs or integers. If the collection is missing at startup, the record manager is cleared, so a wiped Qdrant re-indexes everything.
+- Dense embeddings use a small FastEmbed adapter (`retrieval/store.py`) instead of `langchain-community`. Debug search: `docker exec rica-ingest python -m rica.retrieval.store "query"`.
+- RAM: rica-ingest about 380 MB, Qdrant about 35 MB.
 
 ### M4 — Document Q&A
 - [ ] `docs_retrieve` modes `facts`, `whole_doc`, `find_docs`; `about_me` filter; reranker; neighbor expansion.
