@@ -19,9 +19,10 @@ ROUTES: list[Route] = [
         True,
         None,
         "",
-        "conversation, writing, reasoning, general knowledge, questions about RICA "
-        "itself, or the current date/time. Only when nothing about {name} needs looking up "
-        "and nothing needs current information",
+        "conversation, writing, reasoning, general knowledge, questions about RICA itself, "
+        "the current date or time (RICA is given them), and requests for things RICA can't do "
+        "(calendar, email, messages, files), so it can say so. Use chat alone when nothing about "
+        "{name} needs looking up and no current information from the web is needed",
     ),
     Route(
         "docs",
@@ -53,7 +54,8 @@ ROUTES: list[Route] = [
         True,
         "Read web pages from links {name} sends.",
         "open links",
-        "the message contains a link that should be read",
+        "the message contains a link. Don't add web just to read a link; add it only if the "
+        "request also needs other sources",
     ),
 ]
 

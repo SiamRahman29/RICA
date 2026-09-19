@@ -183,3 +183,12 @@ def test_mid_answer_failure_restarts_with_notice(tmp_path):
     with client(models, tmp_path) as c:
         text = ask(c).json()["choices"][0]["message"]["content"]
     assert text == "partial" + RESTART_NOTICE + "Complete answer."
+
+
+def test_debug_response_has_plan_and_evidence(tmp_path):
+    with client(layer(groq_fast=Scripted(reply=DOCS_PLAN), groq_smart=Scripted(reply="December [1].")), tmp_path, [CAR]) as c:
+        r = c.post("/v1/chat/completions", headers={"Authorization": f"Bearer {KEY}"},
+                   json={"debug": True, "messages": [{"role": "user", "content": "When is my car due?"}]}).json()
+    dbg = r["rica"]
+    assert dbg["routes"] == ["docs"] and dbg["answer_tier"] == "groq-smart" and dbg["cited"] == [1]
+    assert dbg["retrieved"] == ["notes/car.md"] and dbg["evidence"][0]["locator"] == "notes/car.md › Car"

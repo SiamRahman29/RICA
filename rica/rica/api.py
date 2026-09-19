@@ -36,6 +36,7 @@ class ChatRequest(BaseModel):
     model: str = MODEL_ID
     messages: list[ChatMessage]
     stream: bool = False
+    debug: bool = False  # non-streaming only: adds a "rica" object with the plan and evidence (eval)
 
 
 def _text(content: str | list | None) -> str:
@@ -115,9 +116,9 @@ def create_app(
     async def list_models():
         return {"object": "list", "data": [{"id": MODEL_ID, "object": "model", "owned_by": "rica"}]}
 
-    async def run(state: dict) -> AsyncIterator[str]:
+    async def run(state: dict, info: dict | None = None) -> AsyncIterator[str]:
         t0 = time.monotonic()
-        info: dict = {}
+        info = {} if info is None else info
         try:
             async for mode, data in graph.astream(state, stream_mode=["custom", "updates"]):
                 if mode == "custom":
@@ -140,11 +141,14 @@ def create_app(
             "web_status": info.get("web_status"),
             "urls_read": len({c.source for c in info.get("url_chunks") or []}) or None,
             "url_notes": [n.reason for n in info.get("url_notes") or []] or None,
-            "evidence": info.get("evidence_used"),
+            "evidence": len(info.get("evidence") or []),
+            "cited": info.get("cited") or None,
             "invalid_citations": info.get("invalid_citations") or None,
             "attempts": info.get("attempts"),
+            "prompt_tokens": info.get("prompt_tokens"),
             "latency_s": round(time.monotonic() - t0, 2),
         }))
+        info["latency_s"] = round(time.monotonic() - t0, 2)
 
     @app.post("/v1/chat/completions", dependencies=[Depends(auth)])
     async def chat_completions(req: ChatRequest):
@@ -152,11 +156,27 @@ def create_app(
         cid, created = f"chatcmpl-{uuid.uuid4().hex}", int(time.time())
 
         if not req.stream:
-            text = "".join([t async for t in run(state)])
-            return JSONResponse({
+            info: dict = {}
+            text = "".join([t async for t in run(state, info)])
+            body = {
                 "id": cid, "object": "chat.completion", "created": created, "model": MODEL_ID,
                 "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
-            })
+            }
+            if req.debug:
+                plan = info.get("plan")
+                body["rica"] = {
+                    "routes": plan.routes if plan else None,
+                    "plan": plan.model_dump() if plan else None,
+                    "plan_source": info.get("plan_source"),
+                    "answer_tier": info.get("answer_tier"),
+                    "evidence": [{"id": e.id, "source": e.source, "locator": e.locator} for e in info.get("evidence") or []],
+                    "retrieved": sorted({c.source for k in ("doc_chunks", "web_chunks", "url_chunks") for c in info.get(k) or []}),
+                    "cited": info.get("cited"),
+                    "invalid_citations": info.get("invalid_citations"),
+                    "attempts": info.get("attempts"),
+                    "latency_s": info.get("latency_s"),
+                }
+            return JSONResponse(body)
 
         def chunk(delta: dict, finish: str | None = None) -> str:
             body = {

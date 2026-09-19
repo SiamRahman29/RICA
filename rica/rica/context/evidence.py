@@ -114,11 +114,19 @@ def used_tokens(evidence: list[Evidence]) -> int:
     return sum(tokens.count(e.text) + TAG_OVERHEAD for e in evidence)
 
 
+_TAG = re.compile(r"</?\s*(doc|web|doc_search|web_search|url_read|owner_profile|ui_instructions)\b", re.I)
+
+
+def _defang(text: str) -> str:
+    """Untrusted text can't close its own <doc>/<web> tag or open one of ours."""
+    return _TAG.sub(lambda m: m.group(0).replace("<", "‹"), text)
+
+
 def render(evidence: list[Evidence]) -> str:
     parts = []
     for e in evidence:
         date = f' {e.date_label}="{e.date}"' if e.date else ""
-        parts.append(f'<{e.source} id={e.id} src="{escape(e.locator)}"{date}>\n{e.text}\n</{e.source}>')
+        parts.append(f'<{e.source} id={e.id} src="{escape(e.locator)}"{date}>\n{_defang(e.text)}\n</{e.source}>')
     return "\n\n".join(parts)
 
 

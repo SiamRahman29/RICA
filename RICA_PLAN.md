@@ -1,7 +1,7 @@
 # RICA — Personal AI Assistant: Implementation Plan
 
 > Status: **Approved design, ready to build (Phase 1)**
-> Last updated: 2026-09-16
+> Last updated: 2026-09-19 (M1–M5 deployed; M6 harness in place)
 > Location: `/opt/services/ai-infra` · Repo: [SiamRahman29/RICA](https://github.com/SiamRahman29/RICA) (public; personal data lives only in the private `rica-knowledge` repo)
 
 ---
@@ -431,15 +431,15 @@ Note: Open WebUI persists connection settings in its DB after first start; env c
 
 ## 10. Security checklist
 
-- [ ] Open WebUI signup disabled; strong admin password; consider ngrok OAuth / traffic policy in front.
-- [ ] Only Open WebUI is exposed via ngrok. `litellm`, `rica`, `qdrant`, `searxng` have **no host ports** (or `127.0.0.1` only).
-- [ ] LiteLLM `master_key` set; `rica` requires `RICA_INTERNAL_KEY`.
-- [ ] Deploy key is **read-only** and scoped to `rica-knowledge`; `secrets/` is gitignored.
-- [ ] SSRF guard on all URL fetching (§8.6).
-- [ ] Untrusted content wrapped in `<doc>`/`<web>` tags; web/doc routes have **no side-effect tools**.
+- [x] Open WebUI signup disabled (env and saved config both `false`). Strong admin password: owner. *Recommended:* ngrok OAuth / traffic policy in front.
+- [x] Only Open WebUI is exposed via ngrok. `litellm` and `llamacpp` are bound to `127.0.0.1`; `rica`, `qdrant`, `searxng` have no host ports (verified 2026-09-19).
+- [x] LiteLLM `master_key` set; `rica` requires `RICA_INTERNAL_KEY` (both return 401 without a key).
+- [x] Deploy key is **read-only** (a push is rejected) and scoped to `rica-knowledge`; `.env` and `secrets/` are gitignored.
+- [x] SSRF guard on all URL fetching (§8.6), checked at connection time (see M5 notes).
+- [x] Untrusted content wrapped in `<doc>`/`<web>` tags; tag-like text inside it is defanged so it can't close or open our tags. Web/doc routes have **no side-effect tools**.
 - [ ] Phase 2 write actions (calendar) require explicit confirmation (LangGraph `interrupt`).
-- [ ] `_rica/profile.md` contains no sensitive data; `.ricaignore` covers truly private files.
-- [ ] Agent alias allow-list excludes `rica` / `chat-auto` (recursion guard).
+- [ ] `_rica/profile.md` contains no sensitive data; `.ricaignore` covers truly private files. *Owner: the profile is still the template.*
+- [x] Agent alias allow-list excludes `rica` / `chat-auto` (recursion guard, checked at startup).
 
 ---
 
@@ -651,12 +651,14 @@ Notes from the build:
 - **Facts retrieval** now also adds each matched note's first chunk (its intro usually says what the note is about, e.g. which car).
 - **Rules:** cite only ids that exist; general knowledge is not cited. Added after a docs-only answer invented a `[2]`.
 
-### M6 — Evaluation + hardening
-- [ ] `eval/questions.yaml` (~30 real questions: `question`, `expected_routes`, `expected_sources`, `notes`) + `run_eval.py` (routing accuracy, top-5 source hit rate).
-- [ ] Structured JSON logs per request: plan, routes, rungs tried, answering tier, tokens, latency.
-- [ ] Security checklist (§10) complete.
+### M6 — Evaluation + hardening 🟡 harness done 2026-09-19; real eval set pending
+- [~] `eval/questions.yaml` + `run_eval.py` (routing accuracy, top-5 source hit rate, answer regex checks, invalid citations, p50 latency per route). The seed set has 15 questions: chat, web, links, SSRF, and 3 docs placeholders. **Owner: add about 20 docs questions about your real notes once they exist.** Run: `docker exec rica python eval/run_eval.py`.
+- [x] Structured JSON logs per request: routes, plan source, tier, attempts (rungs tried and why), doc/web status, evidence count, cited and invalid citations, prompt tokens, latency. `debug: true` in a non-streaming request returns the same data plus evidence locators (used by the eval).
+- [x] Security checklist (§10), except the owner-owned profile item.
 
 **Accept (targets, cloud tiers):** routing accuracy ≥ 90%; p50 latency — chat < 4 s, docs < 8 s, web < 15 s.
+2026-09-19 on the seed set: routing 93% (14/15), answer checks 100%, 0 invalid citations; p50 chat 1.1 s, docs 1.5 s, web 7.3 s. Source hits are 2/3 only because `about/people.md` is still an empty template.
+Known gap: the planner sometimes adds `web` when asked to summarize a link. It isn't wrong, but it costs about 5 s.
 
 ---
 

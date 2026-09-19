@@ -14,7 +14,7 @@ from langgraph.graph import END, START, StateGraph
 
 from rica.context import tokens
 from rica.context.builder import answer_messages, answer_system
-from rica.context.evidence import CitationNormalizer, Evidence, pack_docs, sources_block, used_tokens
+from rica.context.evidence import CitationNormalizer, Evidence, cited_ids, pack_docs, sources_block, used_tokens
 from rica.context.profile import Profile, ProfileStore
 from rica.llm import LOCAL, AllRungsFailed, ModelLayer, Rung
 from rica.nodes.docs import docs_context, retrieve
@@ -51,8 +51,10 @@ class RicaState(TypedDict, total=False):
     url_chunks: list[Chunk]
     url_notes: list[UrlNote]
     answer_tier: str | None
-    evidence_used: int
+    evidence: list[Evidence]  # what the answering rung was given
+    cited: list[int]
     invalid_citations: list[int]
+    prompt_tokens: int
     attempts: list[str]
 
 
@@ -138,8 +140,8 @@ def build_graph(deps: Deps):
             "docs": state.get("doc_chunks") or [],
             "web": state.get("web_chunks") or [],
         }
-        chunks = [c for g in groups.values() for c in g]
         packed: dict[str, list[Evidence]] = {}
+        prompt_tokens: dict[str, int] = {}
 
         def build(rung: Rung):
             base = tokens.count(answer_system(profile, now, rung.alias, extra))
@@ -160,7 +162,9 @@ def build_graph(deps: Deps):
                 docs_context(state.get("doc_status"), plan.doc_mode, by_group.get("docs", []), name),
                 web_context(state.get("web_status"), by_group.get("web", []), now),
             ] if p)
-            return answer_messages(profile, now, rung.alias, rung.input_budget, state["messages"], extra, context)
+            messages = answer_messages(profile, now, rung.alias, rung.input_budget, state["messages"], extra, context)
+            prompt_tokens[rung.alias] = tokens.count_messages(messages)
+            return messages
 
         # The long-context ladder is for whole notes, long linked pages, and long conversations.
         # Search results and note excerpts are packed down to the first rung's budget instead.
@@ -201,14 +205,17 @@ def build_graph(deps: Deps):
             write(CUT_NOTICE)
 
         evidence = packed.get(tier, []) if tier else []
-        sources, invalid = sources_block(evidence, "".join(text))
+        answer_text = "".join(text)
+        sources, invalid = sources_block(evidence, answer_text)
         if sources:
             write(sources)
         return {
             "answer_tier": tier,
             "attempts": attempts,
-            "evidence_used": len(evidence),
+            "evidence": evidence,
+            "cited": cited_ids(answer_text),
             "invalid_citations": invalid,
+            "prompt_tokens": prompt_tokens.get(tier, 0) if tier else 0,
         }
 
     g = StateGraph(RicaState)

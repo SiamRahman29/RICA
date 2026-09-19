@@ -16,6 +16,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY rica ./rica
+COPY eval ./eval
 RUN uv sync --frozen --no-dev \
  && python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
 
