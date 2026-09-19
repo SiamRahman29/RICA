@@ -1,0 +1,35 @@
+# Model ladders (RICA_PLAN.md §5.3). The agent tries each rung in order and
+# rebuilds the context for that rung's input budget.
+# input_budget is in tokens; the agent uses 90% of it as a safety margin.
+
+models:
+  groq-fast:
+    input_budget: 3000
+    max_output: 400
+    timeout: 30
+    params: {reasoning_effort: low}
+  groq-smart:
+    input_budget: 6000
+    max_output: 1500
+    timeout: 60
+    params: {reasoning_effort: low}
+  gemini-flash:
+    input_budget: 60000
+    max_output: 2048
+    timeout: 90
+    params: {reasoning_effort: low}
+  gemini-lite:
+    input_budget: 30000
+    max_output: 1024
+    timeout: 60
+    params: {reasoning_effort: low}
+  local:
+    input_budget: 3000
+    max_output: 768
+    timeout: 300
+
+ladders:
+  understand:  [groq-fast, gemini-lite, local]   # final fallback: heuristic plan (no LLM)
+  answer:      [groq-smart, gemini-flash, local]
+  answer_long: [gemini-flash, groq-smart, local] # whole doc / multi-page web
+  summarize:   [gemini-lite, local]              # ingestion (background)

@@ -463,7 +463,7 @@ ai-infra/
     ├── Dockerfile
     ├── pyproject.toml
     ├── rica/
-    │   ├── config.py          # pydantic-settings
+    │   ├── settings.py        # pydantic-settings
     │   ├── api.py             # FastAPI OpenAI-compatible endpoint
     │   ├── graph.py           # LangGraph wiring
     │   ├── llm.py             # ladders, budgets, error classification, local notice
@@ -586,13 +586,20 @@ Each milestone ends with its acceptance checks passing.
 **Accept:** every alias answers from Open WebUI; with an invalid Groq key, `chat-auto` answers via Gemini; with no internet, `chat-auto` answers via `local`.
 ✅ 2026-09-19: all six aliases answer through LiteLLM, and Open WebUI lists them. A throwaway LiteLLM with a bad Groq key answered `chat-auto` from Gemini (1 fallback). One on an internal-only Docker network (llama.cpp reachable, no internet) answered from `local` (2 fallbacks).
 
-### M2 — RICA skeleton (identity + chat)
-- [ ] FastAPI OpenAI-compatible endpoint with streaming; register `rica` in LiteLLM.
-- [ ] Context builder: identity, generated capabilities, profile (hot reload), rules, date/time Asia/Dhaka.
-- [ ] Model ladders + budgets + error classification + local notice + recursion guard.
-- [ ] `understand` node with Pydantic plan + heuristic last resort; `chat` route only.
+### M2 — RICA skeleton (identity + chat) ✅ 2026-09-19
+- [x] FastAPI OpenAI-compatible endpoint with streaming; register `rica` in LiteLLM.
+- [x] Context builder: identity, generated capabilities, profile (hot reload), rules, date/time Asia/Dhaka.
+- [x] Model ladders + budgets + error classification + local notice + recursion guard.
+- [x] `understand` node with Pydantic plan + heuristic last resort; `chat` route only.
 
 **Accept:** "Who are you?" → identifies as RICA working for the owner; "What time is it?" → correct Asia/Dhaka time; "Add a meeting to my calendar" → says it can't (yet); with cloud aliases forced to fail → answer streams with the local notice.
+✅ 2026-09-19: all four pass through LiteLLM (about 1–2 s per turn on Groq). The local-notice test used a throwaway LiteLLM with invalid Groq and Gemini keys; the planner and the answer both fell through to `local` (about 13 s).
+
+Notes from the build:
+- Any API error advances the ladder, not only 429/5xx/timeouts. A bad key or a retired model ID then falls through instead of failing the turn. A rung can only take over before the first token is sent; a failure after that ends the answer with a "cut off" note.
+- The planner uses `response_format: json_schema` and validates with Pydantic. This works on groq-fast, gemini-lite and local.
+- The settings module is `rica/settings.py`, not `config.py`, because `config/` (ladders.yaml) is a directory in the same package.
+- Until M3 fills the `knowledge` volume, the profile falls back to `OWNER_NAME` from `.env`.
 
 ### M3 — Knowledge sync + ingestion
 - [ ] `rica-ingest` git loop (§7.2), loader + `.ricaignore` + splitting + metadata (§7.3).

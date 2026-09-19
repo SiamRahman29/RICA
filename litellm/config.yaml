@@ -47,6 +47,15 @@ model_list:
       rpm: 30
       tpm: 8000
 
+  # The RICA agent (rica/). Its own ladders never call this alias or chat-auto
+  # (recursion guard in rica/rica/llm.py).
+  - model_name: rica
+    litellm_params:
+      model: openai/rica
+      api_base: http://rica:8000/v1
+      api_key: os.environ/RICA_INTERNAL_KEY
+      timeout: 600
+
 router_settings:
   # Fail fast: the agent's model ladders (and chat-auto's fallbacks) handle recovery.
   num_retries: 0

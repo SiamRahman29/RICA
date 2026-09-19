@@ -28,6 +28,7 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - RICA_INTERNAL_KEY=${RICA_INTERNAL_KEY}
     ports:
       - "127.0.0.1:4000:4000"
     healthcheck:
@@ -37,6 +38,25 @@ services:
       retries: 3
     depends_on:
       - llamacpp
+    networks:
+      - ai_network
+
+  rica:
+    build: ./rica
+    image: rica:local
+    container_name: rica
+    restart: unless-stopped
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - RICA_INTERNAL_KEY=${RICA_INTERNAL_KEY}
+      - OWNER_NAME=${OWNER_NAME:-}
+      - TZ=${TZ:-Asia/Dhaka}
+    volumes:
+      # Filled by rica-ingest in M3; until then the profile falls back to OWNER_NAME
+      - knowledge:/knowledge:ro
+      - rica_data:/data
+    depends_on:
+      - litellm
     networks:
       - ai_network
 
@@ -56,6 +76,7 @@ services:
       - TASK_MODEL_EXTERNAL=groq-fast
       # Autocomplete would call a model while typing and burn free-tier quota
       - ENABLE_AUTOCOMPLETE_GENERATION=false
+      - DEFAULT_MODELS=rica
     depends_on:
       - litellm
     networks:
@@ -78,6 +99,8 @@ services:
 
 volumes:
   openwebui_data:
+  knowledge:
+  rica_data:
 
 networks:
   ai_network:
