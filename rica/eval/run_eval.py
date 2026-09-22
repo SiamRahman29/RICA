@@ -19,10 +19,18 @@ import yaml
 URL = os.environ.get("RICA_URL", "http://localhost:8000/v1/chat/completions")
 NOT_FOUND = re.compile(
     r"(couldn.t|could not|can.t|cannot|didn.t|did not|don.t|do not) (find|see|locate)|no (note|record|information|mention)|not (in|found in) your notes"
-    r"|(don.t|do not) have (any )?(information|details|anything)|not explicitly (mentioned|stated|recorded)"
+    r"|(don.t|do not|doesn.t|does not) have (that |any |the )?(information|details|anything)"
+    r"|(isn.t|is not|aren.t|are not|not) (explicitly )?(mentioned|specified|stated|recorded|listed)"
     r"|not seeing any|nothing (in|about) (your|the) (notes|provided notes)",
     re.I,
 )
+# Models emit typographic punctuation (U+2011 in "/api\u2011access", U+202F before code spans),
+# which silently fails a plain-ASCII pattern on a correct answer. Fold it back before matching.
+TYPOGRAPHY = str.maketrans({
+    "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-",
+    "\u00a0": " ", "\u202f": " ", "\u2009": " ", "\u200b": "",
+    "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"',
+})
 TARGETS = {"routing": 0.90, "source_hit": 0.80}
 LATENCY_TARGETS = {"chat": 4, "docs": 8, "web": 15}
 
@@ -56,8 +64,12 @@ def main() -> int:
         expected = set(case.get("expected_routes") or []) - {"chat"}
         seen = " ".join([e["locator"] for e in dbg["evidence"]])
         sources = case.get("expected_sources")
+        # NOT_FOUND is prose-matched, which is brittle; also require that the answer cited
+        # nothing, so a fabricated answer that quotes a source can never pass it.
+        flat = answer.translate(TYPOGRAPHY)
         checks = [
-            bool(NOT_FOUND.search(answer)) if pat == "NOT_FOUND" else bool(re.search(pat, answer, re.I))
+            (bool(NOT_FOUND.search(flat)) and not dbg.get("cited"))
+            if pat == "NOT_FOUND" else bool(re.search(pat, flat, re.I))
             for pat in case.get("expect") or []
         ]
         rows.append({
