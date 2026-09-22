@@ -18,7 +18,9 @@ import yaml
 
 URL = os.environ.get("RICA_URL", "http://localhost:8000/v1/chat/completions")
 NOT_FOUND = re.compile(
-    r"(couldn.t|could not|can.t|cannot|didn.t|did not|don.t|do not) (find|see|locate)|no (note|record|information|mention)|not (in|found in) your notes",
+    r"(couldn.t|could not|can.t|cannot|didn.t|did not|don.t|do not) (find|see|locate)|no (note|record|information|mention)|not (in|found in) your notes"
+    r"|(don.t|do not) have (any )?(information|details|anything)|not explicitly (mentioned|stated|recorded)"
+    r"|not seeing any|nothing (in|about) (your|the) (notes|provided notes)",
     re.I,
 )
 TARGETS = {"routing": 0.90, "source_hit": 0.80}

@@ -10,9 +10,14 @@
 #                     it couldn't find it
 #   notes             free text
 #
-# TODO(owner): the docs section needs ~20 questions about your real notes, written after
-# the notes exist. Ask what you'd actually ask, including casual phrasings and questions that
-# should be "not found". Build it from real use rather than inventing questions.
+# The docs section below was drafted on 2026-09-22 from the three Noyta readmes in
+# rica-knowledge. It is a REGRESSION set: the questions were written from the notes, so they
+# share vocabulary with them and flatter retrieval. Keep adding questions from real use --
+# especially casual phrasings and ones that should come back "not found" -- and prefer those
+# when retuning RERANK_THRESHOLD.
+# TODO(owner): about/background.md, about/people.md and about/preferences.md are still empty
+# headings. Once they have content, add about_me questions and flip the two NOT_FOUND cases
+# at the end of this file.
 
 questions:
   # --- chat: identity, time, capabilities -------------------------------------------------
@@ -56,13 +61,141 @@ questions:
     expected_routes: [url]
     expect: ["can.?t|cannot|unable|blocked|private|internal"]
 
-  # --- docs (owner: replace/extend with real questions; see TODO above) ------------------
+  # --- docs: facts from the Noyta notes ---------------------------------------------------
+  - question: Why does Noyta measure a device's clock offset from when the batch is uploaded rather than when the face was captured?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-kiosk-app-readme.md]
+    expect: ["device_reported_at|send"]
+    notes: covered in both the backend and kiosk notes; either source counts as a hit
+  - question: How does Noyta stop a phone from skipping a roster row that hasn't committed yet?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["counter|lock|commit order"]
+  - question: If we fire someone, how does a phone that was offline all week find out?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["tombstone|removed_worker_ids|soft delete"]
+    notes: casual phrasing; the notes never use the word "fire"
+  - question: What happens if I start the Noyta backend without setting JWT_SECRET?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["refus|won.t start|will not start|fail"]
+  - question: Which face model does Noyta run in production?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-kiosk-app-readme.md]
+    expect: ["facenet-512-v1"]
+  - question: Can the Noyta server build an embedding from an uploaded photo on a production deployment?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["409|refus|kiosk"]
+  - question: What does a Noyta viewer get back if they try to change something?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-frontend-readme.md]
+    expect: ["403"]
+  - question: Can the only admin of a Noyta organization demote themselves?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["409|at least one|last admin|cannot|can.?t"]
+  - question: Are Noyta invitation codes hashed in the database?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["plaintext|plain text"]
+    notes: answer should be "no, unlike device tokens and API keys"
+  - question: How many requests a minute does a Noyta API key get by default?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["120"]
+  - question: How far back can I pull one worker's attendance in a single request?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md]
+    expect: ["31"]
+  - question: Is there a limit on how long a report export can cover in the Noyta console?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-frontend-readme.md]
+    expect: ["92"]
+  - question: Why does the Noyta kiosk sometimes tell a worker to try again instead of just picking the closest match?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["0\\.6|margin|runner|ambigu"]
+    notes: casual phrasing for the confidence threshold plus the ambiguity gate
+  - question: Where does the camera work actually happen in the Noyta Android app, Dart or native?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["native|Kotlin"]
+  - question: What does the Noyta kiosk do with an attendance event the server rejects outright?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["dead.?letter"]
+  - question: Is the roster cached on a Noyta phone encrypted?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["SQLCipher"]
+    notes: "\"encrypt\" alone passes on a refusal (\"...whether its cached roster is encrypted\"); name the library"
+  - question: How many attendance records does the Noyta kiosk push at once?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["500"]
+  - question: Can a Noyta kiosk talk to a backend over plain HTTP?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["debug"]
+    notes: debug builds only; release builds stay strict
+  - question: Are the FaceNet weights checked into the Noyta repo?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["release|sha256|not in git|download"]
+  - question: Which endpoints can a paired Noyta device reach with just its device token?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-kiosk-app-readme.md]
+    expect: ["sync/roster"]
+  - question: I just created a Noyta organization. What do I set up first?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-frontend-readme.md]
+    expect: ["facilit"]
+    notes: casual phrasing; expects the facility -> machines/shifts -> workers -> pair -> enrol order
+  - question: Why does the Noyta reverse proxy rule need the trailing slash on /api/?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-frontend-readme.md]
+    expect: ["api-access"]
+
+  # --- docs: whole-doc and find_docs modes ------------------------------------------------
+  - question: Summarize my Noyta frontend readme.
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-frontend-readme.md]
+    expect: ["console|admin"]
+    notes: exercises whole_doc; watch the tier, this one should go to a long-context rung
+  - question: Which of my notes are about Noyta?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-frontend-readme.md, notes/noyta-kiosk-app-readme.md]
+    expect: ["backend", "frontend|console", "kiosk|Android"]
+    notes: exercises find_docs; all three notes should be named
+  - question: Do I have anything written down about facial recognition?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-frontend-readme.md, notes/noyta-kiosk-app-readme.md]
+    notes: casual find_docs phrasing that avoids the word "Noyta" entirely
+
+  # --- docs: cross-note ------------------------------------------------------------------
+  - question: Walk me through what happens across the server and the phone when a worker is removed from Noyta.
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-kiosk-app-readme.md]
+    expect: ["tombstone|removed_worker_ids"]
+  - question: Who decides the business date for a night shift in Noyta, the phone or the server?
+    expected_routes: [docs]
+    expected_sources: [notes/noyta-backend-readme.md, notes/noyta-frontend-readme.md, notes/noyta-kiosk-app-readme.md]
+    expect: ["server|backend"]
+
+  # --- docs: must come back "not found" ---------------------------------------------------
+  - question: What does it cost to run Noyta per month?
+    expected_routes: [docs]
+    expect: [NOT_FOUND]
+  - question: Which payroll system does the Noyta export feed into?
+    expected_routes: [docs]
+    expect: [NOT_FOUND]
+    notes: the notes say "payroll-ready CSV/XLSX" and name no system
   - question: What do my notes say about my family?
     expected_routes: [docs]
-    expected_sources: [about/people.md]
-  - question: What are my food preferences?
-    expected_routes: [docs]
-    expected_sources: [about/preferences.md]
+    expect: [NOT_FOUND]
+    notes: flip to expected_sources [about/people.md] once that file has content
   - question: What is my blood type?
     expected_routes: [docs]
     expect: [NOT_FOUND]
