@@ -614,7 +614,7 @@ Notes from the build:
 - Dense embeddings use a small FastEmbed adapter (`retrieval/store.py`) instead of `langchain-community`. Debug search: `docker exec rica-ingest python -m rica.retrieval.store "query"`.
 - RAM: rica-ingest about 380 MB, Qdrant about 35 MB.
 
-### M4 — Document Q&A ✅ built 2026-09-19 (real-data eval pending)
+### M4 — Document Q&A ✅ built 2026-09-19; re-run on the real Noyta notes 2026-09-22 (source hits 100%)
 - [x] `docs_retrieve` modes `facts`, `whole_doc`, `find_docs`; `about_me` filter; reranker; neighbor expansion.
 - [x] Evidence packing per rung; citations + Sources list; not-found behavior.
 - [ ] (Optional) `rica_docs` summaries. Skipped for now; revisit if whole_doc resolution struggles on the real repo.
@@ -651,14 +651,24 @@ Notes from the build:
 - **Facts retrieval** now also adds each matched note's first chunk (its intro usually says what the note is about, e.g. which car).
 - **Rules:** cite only ids that exist; general knowledge is not cited. Added after a docs-only answer invented a `[2]`.
 
-### M6 — Evaluation + hardening 🟡 harness done 2026-09-19; real eval set pending
-- [~] `eval/questions.yaml` + `run_eval.py` (routing accuracy, top-5 source hit rate, answer regex checks, invalid citations, p50 latency per route). The seed set has 15 questions: chat, web, links, SSRF, and 3 docs placeholders. **Owner: add about 20 docs questions about your real notes once they exist.** Run: `docker exec rica python eval/run_eval.py`.
+### M6 — Evaluation + hardening 🟡 harness + real eval set done 2026-09-22; cloud-tier re-measure pending
+- [x] `eval/questions.yaml` + `run_eval.py` (routing accuracy, top-5 source hit rate, answer regex checks, invalid citations, p50 latency per route). 43 questions: chat, web, links, SSRF, and 28 docs questions over the Noyta notes. Run: `docker exec rica python eval/run_eval.py`. The image bakes `eval/` in, so a change needs `docker compose up -d --build rica`.
+- [ ] **Owner:** `about/background.md`, `about/people.md` and `about/preferences.md` are still bare headings. Once they have content, add `about_me` questions and flip the two `NOT_FOUND` cases at the end of `questions.yaml`.
+- [ ] Retune `RERANK_THRESHOLD` — deferred: source hits are 89–100% on the real notes, so the coarse −10 floor is not currently the binding constraint.
 - [x] Structured JSON logs per request: routes, plan source, tier, attempts (rungs tried and why), doc/web status, evidence count, cited and invalid citations, prompt tokens, latency. `debug: true` in a non-streaming request returns the same data plus evidence locators (used by the eval).
 - [x] Security checklist (§10), except the owner-owned profile item.
 
 **Accept (targets, cloud tiers):** routing accuracy ≥ 90%; p50 latency — chat < 4 s, docs < 8 s, web < 15 s.
 2026-09-19 on the seed set: routing 93% (14/15), answer checks 100%, 0 invalid citations; p50 chat 1.1 s, docs 1.5 s, web 7.3 s. Source hits are 2/3 only because `about/people.md` is still an empty template.
-Known gap: the planner sometimes adds `web` when asked to summarize a link. It isn't wrong, but it costs about 5 s.
+
+2026-09-22: the set is now 43 questions, 28 of them about the three Noyta readmes in `rica-knowledge` (`test(eval)`). Written from the notes rather than from real use, so treat it as a regression set and keep adding real questions.
+- Two runs before any fix: routing 81% and 84% (below the 90% target), source hits 89% and 93%, 0 invalid citations.
+- Every routing miss was the `web` route. The planner's old wording, "facts you are not sure of", made an unrecognised proper noun (`Noyta`) a reason to search the web: five times it added `web` next to the right route, costing only latency, and three times it chose `web` *instead of* docs and answered "I don't have access to your private Noyta repository". It was flaky, not deterministic — the same question passed on a rerun minutes later.
+- Fixed in `fix(planner)`: `web` is now for information published on the internet ("not knowing a name is a reason to look in their notes, not a reason to search"), `docs` explicitly covers technical questions about the owner's own projects and code, and `url` alone covers reading or summarising a linked page. The planner hints also tell it not to add `web` on top of a docs hit.
+- After the fix: **routing 100% (43/43)**, source hits 100%, 0 invalid citations. Caveat: both free tiers were exhausted by then, so all 43 answers came from the local model — that run measured the *local* planner. The nine previously-failing questions were also each re-checked on `groq-smart` and route correctly there.
+- Answer checks fell to 79% in that run and docs p50 to 42 s, both artefacts of the 0.8B fallback: every failure was `source hit True, checks False`. Re-measure latency and answer checks on cloud tiers.
+
+**Free-tier ceiling:** Gemini allows 20 `generate_content` requests per day, and whole-doc questions route there. A full 43-question run does not fit in one day — use `--only` subsets, and expect the ladder to fall to local once the quota is gone.
 
 ---
 
