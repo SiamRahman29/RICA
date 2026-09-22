@@ -656,6 +656,13 @@ Notes from the build:
 ### M6 — Evaluation + hardening 🟡 harness + real eval set done 2026-09-22; cloud-tier re-measure pending
 - [x] `eval/questions.yaml` + `run_eval.py` (routing accuracy, top-5 source hit rate, answer regex checks, invalid citations, p50 latency per route). 43 questions: chat, web, links, SSRF, and 28 docs questions over the Noyta notes. Run: `docker exec rica python eval/run_eval.py`. The image bakes `eval/` in, so a change needs `docker compose up -d --build rica`.
 - [ ] **Owner:** `about/background.md`, `about/people.md` and `about/preferences.md` are still bare headings. Once they have content, add `about_me` questions and flip the two `NOT_FOUND` cases at the end of `questions.yaml`.
+- [ ] **Next:** add `groq-fast` and `gemini-lite` as answer rungs before `local` (owner decision, 2026-09-22):
+  `answer: [groq-smart, gemini-flash, groq-fast, gemini-lite, local]`, `answer_long: [gemini-flash, groq-smart, gemini-lite, local]`
+  (`groq-fast`'s 3K input budget is too small for whole notes). Free-tier quota is **per model**, so the rungs that
+  are exhausted together are rarely all of them: on 2026-09-22 `groq-smart` was in a 429 cooldown and `gemini-flash`
+  had spent its 20/day, while `groq-fast` and `gemini-lite` both answered fine — every answer still fell to the 0.8B
+  local model. Watch two things: each extra rung adds its 429 round-trip to the fallback path, and `gemini-lite`'s
+  20/day is shared with ingestion `summarize`.
 - [ ] Retune `RERANK_THRESHOLD` — deferred: source hits are 89–100% on the real notes, so the coarse −10 floor is not currently the binding constraint.
 - [x] Structured JSON logs per request: routes, plan source, tier, attempts (rungs tried and why), doc/web status, evidence count, cited and invalid citations, prompt tokens, latency. `debug: true` in a non-streaming request returns the same data plus evidence locators (used by the eval).
 - [x] Security checklist (§10), except the owner-owned profile item.
