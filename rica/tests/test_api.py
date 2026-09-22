@@ -79,6 +79,19 @@ def test_local_answer_carries_notice(tmp_path):
     assert text == LOCAL_NOTICE + "Local answer"
 
 
+def test_local_notice_shown_once_per_chat(tmp_path):
+    """The chat UI replays the earlier notice in the history; don't stack another one."""
+    history = [
+        {"role": "user", "content": "Who are you?"},
+        {"role": "assistant", "content": LOCAL_NOTICE + "Local answer"},
+        {"role": "user", "content": "And now?"},
+    ]
+    with client(layer(local=Scripted(reply="Another local answer")), tmp_path) as c:
+        r = c.post("/v1/chat/completions", headers={"Authorization": f"Bearer {KEY}"},
+                   json={"model": "rica", "messages": history})
+    assert r.json()["choices"][0]["message"]["content"] == "Another local answer"
+
+
 def test_everything_down(tmp_path):
     with client(layer(), tmp_path) as c:
         assert ask(c).json()["choices"][0]["message"]["content"] == UNAVAILABLE

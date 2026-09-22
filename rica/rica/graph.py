@@ -29,11 +29,19 @@ LOCAL_NOTICE = (
     "> ⚠️ Cloud models are unavailable right now — this answer is from RICA's local model "
     "and may be less accurate.\n\n"
 )
+# Part of LOCAL_NOTICE that survives in the history Open WebUI sends back, so the
+# warning is shown once per chat instead of on top of every local answer.
+LOCAL_NOTICE_MARK = "Cloud models are unavailable right now"
 CUT_NOTICE = "\n\n_(The answer was cut off: the model connection failed. Please ask again.)_"
 RESTART_NOTICE = "\n\n_(The model stopped mid-answer; starting over with another one.)_\n\n"
 UNAVAILABLE = "Sorry, none of my models are reachable right now. Please try again in a minute."
 # Tokens kept free for the conversation when sizing evidence
 HISTORY_RESERVE = 600
+
+
+def already_warned(messages: list[BaseMessage]) -> bool:
+    """True if an earlier answer in this chat already carried LOCAL_NOTICE."""
+    return any(m.type == "ai" and LOCAL_NOTICE_MARK in m.text for m in messages)
 
 
 class RicaState(TypedDict, total=False):
@@ -179,6 +187,7 @@ def build_graph(deps: Deps):
         ladder = "answer_long" if long else "answer"
 
         tier, text, cites = None, [], CitationNormalizer()
+        warned = already_warned(state["messages"])
 
         def emit(piece: str) -> None:
             if piece:
@@ -194,8 +203,9 @@ def build_graph(deps: Deps):
                     continue
                 if tier is None:
                     tier = alias
-                    if alias == LOCAL:
+                    if alias == LOCAL and not warned:
                         write(LOCAL_NOTICE)
+                        warned = True
                 emit(cites.feed(piece))
             emit(cites.flush())
         except AllRungsFailed:

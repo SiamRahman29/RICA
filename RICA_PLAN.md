@@ -194,6 +194,8 @@ Rules:
 3. `understand` last resort = **deterministic heuristic plan** (URL in message → `url`; first-person possessives like "my" → `docs`; else `chat`).
 4. If the answering rung is `local`, **prepend** to the streamed response:
    `> ⚠️ Cloud models are unavailable right now — this answer is from RICA's local model and may be less accurate.`
+   **Once per chat only:** the agent is stateless, so it checks the history Open WebUI replays — if an earlier
+   assistant message already carries the notice, later local answers in that chat go out without it.
 5. **Recursion guard:** the agent's allowed alias set excludes `rica` and `chat-auto` (asserted at startup).
 
 ### 5.4 llama.cpp changes
