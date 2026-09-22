@@ -29,8 +29,11 @@ ROUTES: list[Route] = [
         True,
         "Search and read {name}'s notes (Markdown knowledge base).",
         "search {name}'s notes",
-        "any question whose answer could depend on {name}'s own life: their background, people, "
-        "preferences and habits, belongings, plans, projects, or anything they wrote down. "
+        "any question whose answer could depend on {name}'s own life or their own work: their "
+        "background, people, preferences and habits, belongings, plans, projects, or anything "
+        "they wrote down. This includes technical questions about their own projects, code and "
+        "the systems they run: a product, repo, service or tool name you don't recognize is "
+        "usually one of {name}'s, not something to look up on the web. "
         "Use it even for casual questions (\"how do I take my coffee?\", \"when is my car due?\")",
         "For docs: doc_filter=about_me when the question is about {name} personally, else any. "
         "doc_mode: facts for specific questions (the usual case); whole_doc only to summarize or "
@@ -42,8 +45,11 @@ ROUTES: list[Route] = [
         True,
         "Search the web and read web pages.",
         "search the web",
-        "news, current events, prices, weather, schedules, recent releases, or facts you are "
-        "not sure of. Use BOTH docs and web when {name} asks whether something of theirs is "
+        "news, current events, prices, weather, schedules, recent releases, or public facts "
+        "that change over time. Web is for information that is published on the internet, not "
+        "for {name}'s own life or work: not knowing a name is a reason to look in their notes, "
+        "not a reason to search. Don't add web to a question docs can answer on its own. "
+        "Use BOTH docs and web when {name} asks whether something of theirs is "
         "typical, normal, good, or up to date (\"is my X normal?\", \"is my plan realistic?\")",
         "For web: search_queries = 1-3 short keyword queries (different angles, not rephrasings); "
         "recency = day or week for news and fast-changing facts, else any; snippets_sufficient = true "
@@ -54,8 +60,10 @@ ROUTES: list[Route] = [
         True,
         "Read web pages from links {name} sends.",
         "open links",
-        "the message contains a link. Don't add web just to read a link; add it only if the "
-        "request also needs other sources",
+        "the message contains a link. url alone is enough to read, summarize, quote or explain "
+        "a linked page, however short the request's own wording is. Add web only when the "
+        "request asks for something the page itself cannot give (comparisons with other "
+        "sources, what has changed since, background the page doesn't cover)",
     ),
 ]
 

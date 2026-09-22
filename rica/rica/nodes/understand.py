@@ -67,7 +67,10 @@ def _system(name: str, now: datetime, hints: list[str]) -> str:
     if hints:
         lines += ["", f"Closest notes from a quick search of {name}'s notes (often unrelated):"]
         lines += [f"- {h}" for h in hints]
-        lines.append("If one of them probably answers the request, include docs.")
+        lines.append(
+            "If one of them probably answers the request, include docs, and don't also add web "
+            "unless the request needs public or current information on top of the notes."
+        )
     lines += ["", "Also write standalone_query: the latest request rewritten in the user's own voice so it makes "
         "sense on its own (a request, not a description of it)."]
     return "\n".join(lines)
