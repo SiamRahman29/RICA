@@ -1,7 +1,7 @@
 # RICA — Personal AI Assistant: Implementation Plan
 
 > Status: **Approved design, ready to build (Phase 1)**
-> Last updated: 2026-09-19 (M1–M5 deployed; M6 harness in place)
+> Last updated: 2026-09-23 (M1–M5 deployed; M6 meets its accept targets on cloud tiers)
 > Location: `/opt/services/ai-infra` · Repo: [SiamRahman29/RICA](https://github.com/SiamRahman29/RICA) (public; personal data lives only in the private `rica-knowledge` repo)
 
 ---
@@ -653,17 +653,16 @@ Notes from the build:
 - **Facts retrieval** now also adds each matched note's first chunk (its intro usually says what the note is about, e.g. which car).
 - **Rules:** cite only ids that exist; general knowledge is not cited. Added after a docs-only answer invented a `[2]`.
 
-### M6 — Evaluation + hardening 🟡 harness + real eval set done 2026-09-22; cloud-tier re-measure pending
+### M6 — Evaluation + hardening 🟡 all accept targets met on cloud tiers 2026-09-23; owner's `about/` notes still pending
 - [x] `eval/questions.yaml` + `run_eval.py` (routing accuracy, top-5 source hit rate, answer regex checks, invalid citations, p50 latency per route). 43 questions: chat, web, links, SSRF, and 28 docs questions over the Noyta notes. Run: `docker exec rica python eval/run_eval.py`. The image bakes `eval/` in, so a change needs `docker compose up -d --build rica`.
 - [ ] **Owner:** `about/background.md`, `about/people.md` and `about/preferences.md` are still bare headings. Once they have content, add `about_me` questions and flip the two `NOT_FOUND` cases at the end of `questions.yaml`.
-- [ ] **Next:** add `groq-fast` and `gemini-lite` as answer rungs before `local` (owner decision, 2026-09-22):
-  `answer: [groq-smart, gemini-flash, groq-fast, gemini-lite, local]`, `answer_long: [gemini-flash, groq-smart, gemini-lite, local]`
-  (`groq-fast`'s 3K input budget is too small for whole notes). Free-tier quota is **per model**, so the rungs that
-  are exhausted together are rarely all of them: on 2026-09-22 `groq-smart` was in a 429 cooldown and `gemini-flash`
-  had spent its 20/day, while `groq-fast` and `gemini-lite` both answered fine — every answer still fell to the 0.8B
-  local model. Watch two things: each extra rung adds its 429 round-trip to the fallback path, and `gemini-lite`'s
-  20/day is shared with ingestion `summarize`.
-- [ ] Retune `RERANK_THRESHOLD` — deferred: source hits are 89–100% on the real notes, so the coarse −10 floor is not currently the binding constraint.
+- [x] `groq-fast` and `gemini-lite` added as answer rungs before `local` (owner decision, 2026-09-22; `feat(ladders)`
+  2026-09-23). `groq-fast` stays out of `answer_long` (3K input is too small for a whole note) and its `max_output`
+  went 400 → 1000, since it now writes answers and not just planner JSON. `gemini-lite`'s 20/day is shared with
+  ingestion `summarize`, and each extra rung adds its 429 round-trip to the fallback path.
+- [ ] Retune `RERANK_THRESHOLD` and chunk selection — still deferred (source hits are 100% on the real notes, so the
+  coarse −10 floor is not the binding constraint), but the kiosk batch-size miss below is the first case where the
+  right note is retrieved and the chunk holding the answer is crowded out by other notes.
 - [x] Structured JSON logs per request: routes, plan source, tier, attempts (rungs tried and why), doc/web status, evidence count, cited and invalid citations, prompt tokens, latency. `debug: true` in a non-streaming request returns the same data plus evidence locators (used by the eval).
 - [x] Security checklist (§10), except the owner-owned profile item.
 
@@ -677,7 +676,31 @@ Notes from the build:
 - After the fix: **routing 100% (43/43)**, source hits 100%, 0 invalid citations. Caveat: both free tiers were exhausted by then, so all 43 answers came from the local model — that run measured the *local* planner. The nine previously-failing questions were also each re-checked on `groq-smart` and route correctly there.
 - Answer checks fell to 79% in that run and docs p50 to 42 s, both artefacts of the 0.8B fallback: every failure was `source hit True, checks False`. Re-measure latency and answer checks on cloud tiers.
 
-**Free-tier ceiling:** Gemini allows 20 `generate_content` requests per day, and whole-doc questions route there. A full 43-question run does not fit in one day — use `--only` subsets, and expect the ladder to fall to local once the quota is gone.
+2026-09-23, the cloud-tier re-measure, on the full 43 after `feat(ladders)`: **routing 100% (43/43), source hits 100%
+(28/28), answer checks 94.7% (36/38), 2 invalid citations; p50 chat 1.1 s, docs 6.2 s, web 4.7 s.** Every accept target
+met, and the two that had been measured on the 0.8B fallback (answer checks, docs p50) are now real numbers.
+- **The new rungs carried the run.** Answers came from `gemini-lite` 18×, `groq-smart` 16×, `groq-fast` 8×,
+  `gemini-flash` 1× — **nothing fell to `local`**. Before the change those 26 cheap-rung answers would have been
+  local ones (42 s, failing their checks). Two ceilings explain the spread: `gemini-flash` spends its 20/day almost
+  at once, and `groq-smart`'s 8K TPM is about one 6K-prompt docs question per minute, so back-to-back questions 429
+  it even when its daily quota is untouched.
+- The two remaining failures are both quality, not plumbing, and both landed on `gemini-lite`:
+  - *"Which payroll system does the Noyta export feed into?"* (a `NOT_FOUND` case) — it said it couldn't find one
+    **and cited a source anyway**, which the harness counts as a fail (`bfbe824`). `groq-smart` answers it cleanly
+    with no citation.
+  - *"How many attendance records does the Noyta kiosk push at once?"* — the fact is in
+    `notes/noyta-kiosk-app-readme.md` ("batches of up to 500"), the right note *is* in the evidence, but the chunk
+    holding the number is not: five of seven packed chunks come from the other two Noyta readmes. A retrieval
+    (not model) miss — `groq-smart` also answers "not specified" on the same evidence. This is the first concrete
+    case for the deferred `RERANK_THRESHOLD` / chunk-selection work.
+- Invalid citations were `[22]` and `[9]` on the Wikipedia summary, and were **not** the model's invention:
+  Wikipedia's `<sup>[1]</sup>` reference markers survived extraction and got copied into the answer, where they read
+  as RICA's own ids. Fixed in `fix(web)`; the case now passes with 0 invalid citations. A low-numbered marker had
+  been the worse half of this — it would have passed as *valid* while pointing at unrelated evidence.
+
+**Free-tier ceiling:** Gemini allows 20 `generate_content` requests per day, and whole-doc questions route there.
+A full 43-question run fits in a day only because the ladder spills onto the other rungs — use `--only` subsets when
+measuring one tier, and read `answer_tier` before trusting a latency number.
 
 ---
 
