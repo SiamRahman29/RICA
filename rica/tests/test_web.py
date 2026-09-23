@@ -1,7 +1,7 @@
 import pytest
 
 from rica.nodes.web import merge_results, page_chunks
-from rica.web.fetch import FetchError, Page, _check_scheme, resolve_public
+from rica.web.fetch import FetchError, Page, _check_scheme, resolve_public, strip_ref_markers
 from rica.web.searx import Result
 
 
@@ -39,3 +39,18 @@ def test_page_chunks_rank_relevant_passage_first():
     best = max(chunks, key=lambda c: c.score)
     assert "launch is scheduled" in best.text
     assert best.origin == "web" and best.date_label == "published" and best.updated_at == "2026-09-18"
+
+
+def test_strip_ref_markers_leaves_code_alone():
+    text = (
+        "The bridge opened in 2022.[9] It cost $3.86 billion,[22][23] funded locally.\n\n"
+        "| Depth | 29 m (95 ft) <sup>[1]</sup> |\n\n"
+        "Area is 5 m<sup>2</sup> today.\n\n"
+        "Read `items[0]` first.\n\n```\nrows[12] = queue[3]\n```\n"
+    )
+    out = strip_ref_markers(text)
+    assert "[9]" not in out and "[22]" not in out and "[23]" not in out
+    assert out.startswith("The bridge opened in 2022. It cost $3.86 billion, funded locally.")
+    assert "| Depth | 29 m (95 ft) |" in out
+    assert "5 m<sup>2</sup>" in out  # a <sup> that is not a reference marker
+    assert "`items[0]`" in out and "rows[12] = queue[3]" in out

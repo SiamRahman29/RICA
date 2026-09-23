@@ -8,6 +8,7 @@ so DNS can't be swapped between the check and the connection (rebinding).
 import asyncio
 import ipaddress
 import logging
+import re
 import socket
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,6 +26,16 @@ USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"
 )
 HTML_TYPES = ("text/html", "application/xhtml+xml")
+# Wikipedia-style reference markers survive extraction, and the answer model copies them
+# straight into its text, where they collide with RICA's own [n] citation ids — [9] may
+# not exist, or worse, may point at unrelated evidence. Wikipedia emits them as
+# <sup>[1]</sup> (left alone when the <sup> holds anything else, e.g. an exponent);
+# other sites attach them to the prose as "opened in 2022.[9]".
+SUP_MARKER = re.compile(r"\s*<sup>(?:\[\d{1,3}\])+</sup>")
+REF_MARKER = re.compile(r"""(?<=[\w.,;:!?"')\]])\[\d{1,3}\]""")
+# Code keeps its brackets, so `items[0]` survives. Indented blocks are not detected;
+# trafilatura's markdown fences the code it recognises.
+CODE_SPAN = re.compile(r"```.*?```|`[^`\n]*`", re.S)
 
 
 class FetchError(Exception):
@@ -103,6 +114,20 @@ async def fetch_html(client: httpx.AsyncClient, url: str) -> tuple[str, str]:
     raise FetchError("failed", "too many redirects")
 
 
+def strip_ref_markers(text: str) -> str:
+    """Drops footnote markers like [9] from prose, leaving code spans untouched."""
+    def clean(s: str) -> str:
+        return REF_MARKER.sub("", SUP_MARKER.sub("", s))
+
+    out, last = [], 0
+    for m in CODE_SPAN.finditer(text):
+        out.append(clean(text[last : m.start()]))
+        out.append(m.group(0))
+        last = m.end()
+    out.append(clean(text[last:]))
+    return "".join(out)
+
+
 def extract(url: str, html: str) -> Page:
     text = trafilatura.extract(html, url=url, output_format="markdown", include_links=False, include_tables=True)
     if not text or len(text) < 200:
@@ -111,7 +136,7 @@ def extract(url: str, html: str) -> Page:
     return Page(
         url=url,
         title=(meta.title if meta and meta.title else urlsplit(url).hostname or url),
-        text=text,
+        text=strip_ref_markers(text),
         published=(meta.date if meta and meta.date else None),
         fetched=datetime.now(UTC).date().isoformat(),
     )
