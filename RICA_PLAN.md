@@ -109,7 +109,7 @@ Model IDs change often. Verified 2026-09-17 with test calls: Groq no longer offe
 
 | Alias | Provider model (initial pick) | Role | Input budget (tokens) | Max output |
 |---|---|---|---|---|
-| `groq-fast` | `groq/openai/gpt-oss-20b` | planner (understand), URL selection | 3,000 | 400 |
+| `groq-fast` | `groq/openai/gpt-oss-20b` | planner (understand), URL selection, cheap answer rung | 3,000 | 1,000 |
 | `groq-smart` | `groq/openai/gpt-oss-120b` | main answers (short context) | 6,000 | 1,500 |
 | `gemini-flash` | `gemini/gemini-3.6-flash` | long-context answers, whole docs, web pages | 60,000 | 2,048 |
 | `gemini-lite` | `gemini/gemini-3.5-flash-lite` | planner fallback, doc summaries, listwise rerank (optional) | 30,000 | 1,024 |
@@ -183,8 +183,8 @@ Defined in `rica/rica/config/ladders.yaml`:
 ```yaml
 ladders:
   understand:   [groq-fast, gemini-lite, local]      # final fallback: heuristic plan (no LLM)
-  answer:       [groq-smart, gemini-flash, local]
-  answer_long:  [gemini-flash, groq-smart, local]    # whole doc / multi-page web
+  answer:       [groq-smart, gemini-flash, groq-fast, gemini-lite, local]
+  answer_long:  [gemini-flash, groq-smart, gemini-lite, local]   # whole doc / multi-page web
   summarize:    [gemini-lite, local]                 # ingestion (background)
 ```
 

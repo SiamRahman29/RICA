@@ -7,7 +7,7 @@ models:
   groq-fast:
     input_budget: 3000
     evidence_budget: 1500
-    max_output: 400
+    max_output: 1000   # it is an answer rung now, not just the planner's
     timeout: 30
     params: {reasoning_effort: low}
   groq-smart:
@@ -36,6 +36,9 @@ models:
 
 ladders:
   understand:  [groq-fast, gemini-lite, local]   # final fallback: heuristic plan (no LLM)
-  answer:      [groq-smart, gemini-flash, local]
-  answer_long: [gemini-flash, groq-smart, local] # whole doc / multi-page web
+  # Free-tier quota is per model, so the cheap rungs usually still answer when the
+  # big ones are spent. groq-fast is not in answer_long: 3K input is too small for a
+  # whole note.
+  answer:      [groq-smart, gemini-flash, groq-fast, gemini-lite, local]
+  answer_long: [gemini-flash, groq-smart, gemini-lite, local]  # whole doc / multi-page web
   summarize:   [gemini-lite, local]              # ingestion (background)
